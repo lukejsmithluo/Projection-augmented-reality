@@ -53,14 +53,32 @@ def main(opt):
     positional_tracking_parameters.set_floor_as_origin = True
     returned_state = zed.enable_positional_tracking(positional_tracking_parameters)
     if returned_state != sl.ERROR_CODE.SUCCESS:
-        print("Enable Positional Tracking : "+repr(status)+". Exit program.")
+        print("Enable Positional Tracking : "+repr(returned_state)+". Exit program.")
         exit()
+    else:
+        print("Positional tracking successfully enabled.")
     
     if opt.build_mesh:
-        spatial_mapping_parameters = sl.SpatialMappingParameters(resolution = sl.MAPPING_RESOLUTION.MEDIUM,mapping_range =  sl.MAPPING_RANGE.MEDIUM,max_memory_usage = 2048,save_texture = True,use_chunk_only = True,reverse_vertex_order = False,map_type = sl.SPATIAL_MAP_TYPE.MESH)
+        spatial_mapping_parameters = sl.SpatialMappingParameters(
+            resolution=sl.MAPPING_RESOLUTION.HIGH,  # Use HIGH resolution for better mesh quality
+            mapping_range=sl.MAPPING_RANGE.MEDIUM,
+            max_memory_usage=4096,  # Increase memory for better quality
+            save_texture=True,
+            use_chunk_only=False,  # Set to False to get complete mesh
+            reverse_vertex_order=False,
+            map_type=sl.SPATIAL_MAP_TYPE.MESH
+        )
         pymesh = sl.Mesh() 
     else :
-        spatial_mapping_parameters = sl.SpatialMappingParameters(resolution = sl.MAPPING_RESOLUTION.MEDIUM,mapping_range =  sl.MAPPING_RANGE.MEDIUM,max_memory_usage = 2048,save_texture = False,use_chunk_only = True,reverse_vertex_order = False,map_type = sl.SPATIAL_MAP_TYPE.FUSED_POINT_CLOUD)
+        spatial_mapping_parameters = sl.SpatialMappingParameters(
+            resolution=sl.MAPPING_RESOLUTION.HIGH,  # Use HIGH resolution for better quality
+            mapping_range=sl.MAPPING_RANGE.MEDIUM,
+            max_memory_usage=4096,  # Increase memory for better quality
+            save_texture=False,
+            use_chunk_only=False,  # Set to False to get complete point cloud
+            reverse_vertex_order=False,
+            map_type=sl.SPATIAL_MAP_TYPE.FUSED_POINT_CLOUD
+        )
         pymesh = sl.FusedPointCloud()
 
     tracking_state = sl.POSITIONAL_TRACKING_STATE.OFF
@@ -107,20 +125,29 @@ def main(opt):
 
             if change_state:
                 if not mapping_activated:
-                    init_pose = sl.Transform()
-                    zed.reset_positional_tracking(init_pose)
+                    # Start spatial mapping (use existing positional tracking)
+                    print("Using existing positional tracking for spatial mapping...")
 
                     # Configure spatial mapping parameters
-                    spatial_mapping_parameters.resolution_meter = sl.SpatialMappingParameters().get_resolution_preset(sl.MAPPING_RESOLUTION.MEDIUM)
-                    spatial_mapping_parameters.use_chunk_only = True
-                    spatial_mapping_parameters.save_texture = False         # Set to True to apply texture over the created mesh
+                    spatial_mapping_parameters.resolution_meter = sl.SpatialMappingParameters().get_resolution_preset(sl.MAPPING_RESOLUTION.HIGH)
+                    spatial_mapping_parameters.use_chunk_only = False  # Get complete mesh data
+                    spatial_mapping_parameters.max_memory_usage = 4096  # Increase memory for better quality
+                    
+                    # Set texture saving based on mesh mode
                     if opt.build_mesh:
+                        spatial_mapping_parameters.save_texture = True
                         spatial_mapping_parameters.map_type = sl.SPATIAL_MAP_TYPE.MESH
+                        print("Starting MESH spatial mapping with texture...")
                     else:
+                        spatial_mapping_parameters.save_texture = False
                         spatial_mapping_parameters.map_type = sl.SPATIAL_MAP_TYPE.FUSED_POINT_CLOUD
+                        print("Starting FUSED_POINT_CLOUD spatial mapping...")
 
                     # Enable spatial mapping
-                    zed.enable_spatial_mapping(spatial_mapping_parameters)
+                    err = zed.enable_spatial_mapping(spatial_mapping_parameters)
+                    if err != sl.ERROR_CODE.SUCCESS:
+                        print(f"Failed to enable spatial mapping: {err}")
+                        exit()
 
                     # Clear previous mesh data
                     pymesh.clear()
@@ -128,57 +155,68 @@ def main(opt):
 
                     # Start timer
                     last_call = time.time()
-
                     mapping_activated = True
+                    print("Spatial mapping started. Move the camera to scan the area, then press SPACE again to stop and save.")
+                    
                 else:
-                    # Extract whole mesh
-                    zed.extract_whole_spatial_map(pymesh)
-
-                    if opt.build_mesh:
-                        filter_params = sl.MeshFilterParameters()
-                        filter_params.set(sl.MESH_FILTER.MEDIUM) 
-                        # Filter the extracted mesh
-                        pymesh.filter(filter_params, True)
-                        viewer.clear_current_mesh()
-
-                        # If textures have been saved during spatial mapping, apply them to the mesh
-                        if(spatial_mapping_parameters.save_texture):
-                            print("Save texture set to : {}".format(spatial_mapping_parameters.save_texture))
-                            pymesh.apply_texture(sl.MESH_TEXTURE_FORMAT.RGBA)
-
-                    # Save mesh as an obj file
-                    # Create data directory if it doesn't exist
-                    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-                    os.makedirs(data_dir, exist_ok=True)
+                    # Stop spatial mapping and extract mesh
+                    print("Stopping spatial mapping and extracting mesh...")
                     
-                    # Generate filename with timestamp for uniqueness
-                    import datetime
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    if opt.build_mesh:
-                        filename = f"mesh_{timestamp}.obj"
-                        # Apply texture before saving for mesh type
-                        if spatial_mapping_parameters.save_texture:
-                            print("Applying texture to mesh...")
-                            pymesh.apply_texture(sl.MESH_TEXTURE_FORMAT.RGBA)
-                    else:
-                        filename = f"pointcloud_{timestamp}.obj"
+                    # Extract the complete spatial map BEFORE disabling spatial mapping
+                    print("Extracting whole spatial map...")
+                    err = zed.extract_whole_spatial_map(pymesh)
                     
-                    filepath = os.path.join(data_dir, filename)
-                    status = pymesh.save(filepath)
-                    if status:
-                        print(f"Successfully saved: {filepath}")
-                        if opt.build_mesh and spatial_mapping_parameters.save_texture:
-                            # When texture is enabled, ZED SDK automatically saves .mtl and .png files
-                            mtl_file = filepath.replace('.obj', '.mtl')
-                            png_file = filepath.replace('.obj', '.png')
-                            print(f"Material file: {mtl_file}")
-                            print(f"Texture file: {png_file}")
-                            print("Note: .mtl and .png files are automatically generated by ZED SDK when save_texture=True")
-                    else:
-                        print("Failed to save the mesh under " + filepath)
-                    
-                    mapping_state = sl.SPATIAL_MAPPING_STATE.NOT_ENABLED
+                    # Now disable spatial mapping and reset flag
+                    zed.disable_spatial_mapping()
                     mapping_activated = False
+                    if err != sl.ERROR_CODE.SUCCESS:
+                        print(f"Failed to extract spatial map: {err}")
+                    else:
+                        print(f"Successfully extracted spatial map")
+                        
+                        # Check if mesh has data
+                        nb_vertices = pymesh.vertices.shape[0] if hasattr(pymesh, 'vertices') and pymesh.vertices is not None else 0
+                        nb_triangles = pymesh.triangles.shape[0] if hasattr(pymesh, 'triangles') and pymesh.triangles is not None else 0
+                        print(f"Mesh contains {nb_vertices} vertices and {nb_triangles} triangles")
+                        
+                        if nb_vertices > 0:
+                            if opt.build_mesh:
+                                # Apply mesh filtering if requested
+                                if opt.mesh_filter != 'NO_FILTER':
+                                    filter_params = sl.MeshFilterParameters()
+                                    if opt.mesh_filter == 'LOW':
+                                        filter_params.set(sl.MESH_FILTER.LOW)
+                                    elif opt.mesh_filter == 'MEDIUM':
+                                        filter_params.set(sl.MESH_FILTER.MEDIUM)
+                                    elif opt.mesh_filter == 'HIGH':
+                                        filter_params.set(sl.MESH_FILTER.HIGH)
+                                    
+                                    print(f"Applying {opt.mesh_filter} mesh filtering...")
+                                    err = pymesh.filter(filter_params)
+                                    if err != sl.ERROR_CODE.SUCCESS:
+                                        print(f"Mesh filtering failed: {err}")
+                                    else:
+                                        print("Mesh filtering completed successfully")
+                                else:
+                                    print("Skipping mesh filtering (NO_FILTER selected)")
+
+                                # Apply texture if enabled
+                                if spatial_mapping_parameters.save_texture:
+                                    print("Applying texture to mesh...")
+                                    err = pymesh.apply_texture(sl.MESH_TEXTURE_FORMAT.RGBA)
+                                    if err != sl.ERROR_CODE.SUCCESS:
+                                        print(f"Texture application failed: {err}")
+                                    else:
+                                        print("Texture applied successfully")
+
+                            # Save mesh
+                            save_mesh_to_file(pymesh, opt, spatial_mapping_parameters)
+                        else:
+                            print("ERROR: No mesh data extracted! Make sure to move the camera around to capture the environment.")
+                    
+                    print("Spatial mapping stopped. Press SPACE again to start a new mapping session.")
+                    
+
     
     image.free(memory_type=sl.MEM.CPU)
     pymesh.clear()
@@ -196,6 +234,49 @@ def main(opt):
     zed.close()
    
           
+def save_mesh_to_file(pymesh, opt, spatial_mapping_parameters):
+    """Save the mesh to an OBJ file with proper error handling"""
+    import datetime
+    
+    # Create data directory if it doesn't exist
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    os.makedirs(data_dir, exist_ok=True)
+    
+    # Generate filename with timestamp for uniqueness
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    if opt.build_mesh:
+        filename = f"mesh_{timestamp}.obj"
+    else:
+        filename = f"pointcloud_{timestamp}.obj"
+    
+    filepath = os.path.join(data_dir, filename)
+    
+    print(f"Saving to: {filepath}")
+    status = pymesh.save(filepath)
+    
+    if status:
+        print(f"Successfully saved: {filepath}")
+        
+        # Check file size to verify it's not empty
+        file_size = os.path.getsize(filepath)
+        print(f"File size: {file_size} bytes")
+        
+        if opt.build_mesh and spatial_mapping_parameters.save_texture:
+            # Check for associated material and texture files
+            mtl_file = filepath.replace('.obj', '.mtl')
+            png_file = filepath.replace('.obj', '.png')
+            
+            if os.path.exists(mtl_file):
+                print(f"Material file created: {mtl_file}")
+            if os.path.exists(png_file):
+                print(f"Texture file created: {png_file}")
+                
+        return True
+    else:
+        print(f"Failed to save the mesh to: {filepath}")
+        return False
+
+
 def parse_args(init, opt):
     if len(opt.input_svo_file)>0 and opt.input_svo_file.endswith((".svo", ".svo2")):
         init.set_from_svo_file(opt.input_svo_file)
@@ -240,6 +321,7 @@ if __name__ == "__main__":
     parser.add_argument('--ip_address', type=str, help='IP Adress, in format a.b.c.d:port or a.b.c.d, if you have a streaming setup', default = '')
     parser.add_argument('--resolution', type=str, help='Resolution, can be either HD2K, HD1200, HD1080, HD720, SVGA or VGA', default = '')
     parser.add_argument('--build_mesh', help = 'Either the script should plot a mesh or point clouds of surroundings', action='store_true')
+    parser.add_argument('--mesh_filter', type=str, choices=['NO_FILTER', 'LOW', 'MEDIUM', 'HIGH'], default='NO_FILTER', help='Mesh filtering level: NO_FILTER (no filtering), LOW, MEDIUM, HIGH. Default is NO_FILTER')
     opt = parser.parse_args()
     if len(opt.input_svo_file)>0 and len(opt.ip_address)>0:
         print("Specify only input_svo_file or ip_address, or none to use wired camera, not both. Exit program")

@@ -26,6 +26,46 @@ Pre-scanned point cloud/
 - 获取最新的 [ZED SDK](https://www.stereolabs.com/developers/release/) 和 [pyZED 包](https://www.stereolabs.com/docs/app-development/python/install/)
 - 查看 [官方文档](https://www.stereolabs.com/docs/)
 
+## 虚拟环境设置（推荐）
+
+为了避免包版本冲突问题，强烈建议使用虚拟环境运行此程序：
+
+### 方法一：使用现有虚拟环境
+项目已包含配置好的虚拟环境 `zed_env`，包含兼容的依赖版本：
+- NumPy 1.24.4（与 PyOpenGL-accelerate 3.1.6 兼容）
+- ZED SDK 5.1.0 pyzed 库
+- PyOpenGL 和 PyOpenGL-accelerate 3.1.10
+
+直接使用虚拟环境运行：
+```bash
+# 在项目根目录
+cd src
+..\zed_env\Scripts\python.exe spatial_mapping.py
+```
+
+### 方法二：创建新的虚拟环境
+如果需要重新创建虚拟环境：
+```bash
+# 创建虚拟环境
+python -m venv zed_env
+
+# 安装依赖
+.\zed_env\Scripts\pip.exe install -r requirements.txt
+
+# 手动复制 pyzed 库（如果需要特定版本）
+# 从系统 Python 的 site-packages 复制 pyzed 文件夹到虚拟环境
+```
+
+### Git版本控制说明
+项目已包含 `.gitignore` 文件，自动排除以下内容：
+- 虚拟环境文件夹（`zed_env/`, `venv/` 等）
+- Python缓存文件（`__pycache__/`, `*.pyc` 等）
+- IDE配置文件（`.vscode/`, `.idea/` 等）
+- 临时文件和日志文件
+- ZED特定文件（`*.svo`, `*.svo2`）
+
+这确保了只有源代码和必要的配置文件被纳入版本控制，避免上传大型虚拟环境文件。
+
 ## 使用方法
 
 ### 基本运行
@@ -38,15 +78,32 @@ Pre-scanned point cloud/
 
 ### 高级参数运行
 如果您希望从SVO文件回放、指定IP地址或设置分辨率，请使用：
+
+#### 示例命令：
 ```bash
-python spatial_mapping.py --input_svo_file <输入svo文件> --ip_address <ip地址> --resolution <分辨率>
+# 使用HD2K分辨率生成网格
+python spatial_mapping.py --resolution HD2K --build_mesh
+
+# 从SVO文件回放并生成点云
+python spatial_mapping.py --input_svo_file path/to/file.svo
+
+# 连接到IP摄像头并设置分辨率
+python spatial_mapping.py --ip_address 192.168.1.100:2171 --resolution HD1080 --build_mesh
+
+# 完整参数示例
+python spatial_mapping.py --input_svo_file <输入svo文件> --ip_address <ip地址> --resolution <分辨率> --build_mesh
 ```
 
 ### 参数说明
 - `--input_svo_file`: 现有.svo文件的路径，用于回放。如果未指定此参数和ip_address，软件将默认使用有线连接的摄像头
 - `--ip_address`: IP地址，格式为a.b.c.d:port或a.b.c.d。如果指定，软件将尝试连接到该IP
 - `--resolution`: 分辨率，可以是HD2K、HD1200、HD1080、HD720、SVGA或VGA
-- `--build_mesh`: 指定脚本应该生成网格还是周围环境的点云
+- `--build_mesh`: 指定脚本应该生成网格还是周围环境的点云（带纹理）
+- `--mesh_filter`: 网格过滤级别，可选值：
+  - `NONE`: 禁用过滤，保留所有网格数据（推荐用于保留更多细节）
+  - `LOW`: 低级过滤，轻微清理噪声
+  - `MEDIUM`: 中级过滤（默认值），平衡质量和细节
+  - `HIGH`: 高级过滤，大幅减少噪声但可能丢失细节
 
 ### ⚠️ 重要说明：纹理文件生成
 **如果您需要生成材质(.mtl)和纹理(.png)文件，必须使用 `--build_mesh` 参数！**
@@ -65,6 +122,12 @@ python spatial_mapping.py --input_svo_file <输入svo文件> --ip_address <ip地
 ```bash
 # 生成带纹理的网格文件（推荐）
 python spatial_mapping.py --build_mesh
+
+# 生成网格文件并禁用过滤（保留更多细节）
+python spatial_mapping.py --build_mesh --mesh_filter NONE
+
+# 使用高级过滤生成更干净的网格
+python spatial_mapping.py --build_mesh --mesh_filter HIGH
 
 # 仅生成点云文件
 python spatial_mapping.py
@@ -111,6 +174,20 @@ python spatial_mapping.py
 - PyOpenGL
 
 ## 已修复问题
+
+### 位置跟踪重启问题修复 (2025-01-15)
+**问题描述**: 程序重启后空间映射失败，提示"Cannot use Spatial mapping: Positional tracking not enabled"
+
+**根本原因**: 在空间映射启动时调用 `zed.reset_positional_tracking(init_pose)` 导致位置跟踪被重置，但重新启用位置跟踪需要时间稳定，导致空间映射启动时位置跟踪状态不可用
+
+**解决方案**: 
+- 移除了空间映射启动时的位置跟踪重置逻辑
+- 直接使用程序初始化时已启用的位置跟踪
+- 简化了空间映射启动流程，避免不必要的重置操作
+
+**影响**: 现在程序重启后可以正常启动空间映射功能，位置跟踪状态保持稳定
+
+**修改文件**: `spatial_mapping.py` - 简化了空间映射启动逻辑，移除了位置跟踪重置代码
 
 ### 内存访问违规错误修复 (2025-10-23)
 **问题描述**: 在长时间运行空间映射时出现的内存访问违规错误
