@@ -1,0 +1,46 @@
+{
+  "camera": {
+    "P": [
+      1046.7003173828125,
+      0,
+      1119.760986328125,
+      0,
+      1046.7003173828125,
+      609.649169921875,
+      0,
+      0,
+      1
+    ],
+    "distortion": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "other properties will be ignored": "",
+    "width": 2208,
+    "height": 1242,
+    "intrinsics": {
+      "fx": 1046.7003173828125,
+      "fy": 1046.7003173828125,
+      "cx": 1119.760986328125,
+      "cy": 609.649169921875
+    },
+    "distortion_coefficients": {
+      "k1": 0.0,
+      "k2": 0.0,
+      "k3": 0.0,
+      "p1": 0.0,
+      "p2": 0.0
+    },
+    "field_of_view": {
+      "horizontal_deg": 93.05500793457031,
+      "vertical_deg": 61.36252975463867,
+      "diagonal_deg": 100.86647033691406
+    },
+    "camera_model": "ZED",
+    "sdk_version": "4.x",
+    "calibration_source": "factory_calibration"
+  }
+}

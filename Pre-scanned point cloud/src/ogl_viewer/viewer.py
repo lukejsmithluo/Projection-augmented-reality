@@ -225,6 +225,9 @@ class GLViewer:
         self.pose = sl.Transform().set_identity()
         self.tracking_state = sl.POSITIONAL_TRACKING_STATE.OFF
         self.mapping_state = sl.SPATIAL_MAPPING_STATE.NOT_ENABLED
+        # Display all chunks in overlay instead of only recently-updated ones
+        # This makes the blue wireframe better match the final extracted mesh
+        self.display_all_chunks = True
 
     def init(self, _params, _mesh, _create_mesh): 
         glutInit()
@@ -392,11 +395,12 @@ class GLViewer:
             
             # For both Mesh and FPC
             for m in range(len(self.sub_maps)):
-                if (m < nb_c) and self.mesh.chunks[m].has_been_updated:
-                    if self.draw_mesh:
-                        self.sub_maps[m].update_mesh(self.mesh.chunks[m])
-                    else:
-                        self.sub_maps[m].update_fpc(self.mesh.chunks[m])
+                if (m < nb_c):
+                    if self.display_all_chunks or self.mesh.chunks[m].has_been_updated:
+                        if self.draw_mesh:
+                            self.sub_maps[m].update_mesh(self.mesh.chunks[m])
+                        else:
+                            self.sub_maps[m].update_fpc(self.mesh.chunks[m])
                         
             self.new_chunks = False
             self.chunks_pushed = True

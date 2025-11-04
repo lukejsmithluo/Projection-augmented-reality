@@ -1,13 +1,13 @@
 # Requested ignores
 /Pre-scanned point cloud/zed_env/
-/procam-calibration/capture_*/
-/procam-calibration/**/capture_*/
-/procam-calibration/capture_*/**
-/procam-calibration/**/capture_*/**
-/procam-calibration/graycode_pattern/
-/procam-calibration/graycode_pattern/**
-/procam-calibration/**/graycode_pattern/
-/procam-calibration/**/graycode_pattern/**
+/Projector-Calibration/capture_*/
+/Projector-Calibration/**/capture_*/
+/Projector-Calibration/capture_*/**
+/Projector-Calibration/**/capture_*/**
+/Projector-Calibration/graycode_pattern/
+/Projector-Calibration/graycode_pattern/**
+/Projector-Calibration/**/graycode_pattern/
+/Projector-Calibration/**/graycode_pattern/**
 
 # Virtual Environments
 zed_env/
@@ -93,3 +93,5 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+/Temp/**/
+/temp/**/

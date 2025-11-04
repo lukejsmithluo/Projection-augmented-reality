@@ -89,11 +89,27 @@ python spatial_mapping.py --input_svo_file <输入svo文件> --ip_address <ip地
 - `--ip_address`: IP地址，格式为a.b.c.d:port或a.b.c.d。如果指定，软件将尝试连接到该IP
 - `--resolution`: 分辨率，可以是HD2K、HD1200、HD1080、HD720、SVGA或VGA
 - `--build_mesh`: 指定脚本应该生成网格还是周围环境的点云（带纹理）
-- `--mesh_filter`: 网格过滤级别，可选值：
+ - `--mesh_filter`: 网格过滤级别，可选值：
   - `NONE`: 禁用过滤，保留所有网格数据（推荐用于保留更多细节）
   - `LOW`: 低级过滤，轻微清理噪声
   - `MEDIUM`: 中级过滤（默认值），平衡质量和细节
   - `HIGH`: 高级过滤，大幅减少噪声但可能丢失细节
+ - `--units`: 坐标单位选择，支持 `METER` 与 `CENTIMETER`。默认值为 `CENTIMETER`，以便与虚幻引擎（Unreal Engine，单位为厘米）无缝对接。
+
+#### 单位与虚幻对接
+- 本程序生成的 `.obj` 顶点坐标遵循 `InitParameters.coordinate_units` 设置。
+- 默认 `--units CENTIMETER`，导入虚幻后无需额外缩放（1 Unreal 单位 = 1 cm）。
+- 若选择 `METER`，请在虚幻导入时将 `Import Uniform Scale` 设置为 `100`，或在导入后将网格缩放为 `100x`，以匹配厘米单位。
+- 坐标系使用 `RIGHT_HANDED_Y_UP`（Y向上），虚幻为 `Z` 向上。如出现朝向不一致，可在导入时设置 `Import Rotation` 约 `X=-90°` 进行修正。
+
+**示例**：
+```bash
+# 默认（推荐）：以厘米为单位输出（虚幻无需缩放）
+python spatial_mapping.py --build_mesh --units CENTIMETER
+
+# 以米为单位输出（虚幻导入需缩放100倍）
+python spatial_mapping.py --build_mesh --units METER
+```
 
 ### ⚠️ 重要说明：纹理文件生成
 **如果您需要生成材质(.mtl)和纹理(.png)文件，必须使用 `--build_mesh` 参数！**
@@ -111,13 +127,13 @@ python spatial_mapping.py --input_svo_file <输入svo文件> --ip_address <ip地
 **示例命令**：
 ```bash
 # 生成带纹理的网格文件（推荐）
-python spatial_mapping.py --build_mesh
+python spatial_mapping.py --build_mesh --save_texture
 
 # 生成网格文件并禁用过滤（保留更多细节）
-python spatial_mapping.py --build_mesh --mesh_filter NONE
+python spatial_mapping.py --build_mesh --save_texture --mesh_filter NONE
 
 # 使用高级过滤生成更干净的网格
-python spatial_mapping.py --build_mesh --mesh_filter HIGH
+python spatial_mapping.py --build_mesh --save_texture --mesh_filter HIGH
 
 # 仅生成点云文件
 python spatial_mapping.py
@@ -128,6 +144,7 @@ python spatial_mapping.py
 - 实时网格叠加到图像上
 - 可以对网格应用纹理和后处理滤镜
 - 停止映射时自动保存最终网格
+ - 叠加显示优化：蓝色线框会显示所有可用块（不仅是最近更新的块），更贴近最终导出的模型；若现场性能受影响，可降低采集分辨率或提高 `--update_rate_ms`。
 
 ## 输出文件
 
@@ -146,10 +163,10 @@ python spatial_mapping.py
 **注意**: 当使用网格模式且启用纹理时，ZED SDK会自动生成对应的.mtl和.png文件
 
 ## 技术规格
-- **SDK版本**: Stereolabs ZED SDK 5.0.7
+- **SDK版本**: Stereolabs ZED SDK 5.1.0
 - **Python版本**: 3.10+
 - **支持分辨率**: HD720, HD1080, HD1200, HD2K, SVGA, VGA
-- **深度模式**: NEURAL (默认)
+- **深度模式**: NEURAL_PLUS（默认，性能需求可切换为 NEURAL）
 - **渲染**: OpenGL 3.3+
 - **空间映射分辨率**: MEDIUM (默认)
 - **映射范围**: MEDIUM (默认)
@@ -157,7 +174,7 @@ python spatial_mapping.py
 
 ## 依赖项
 - Python 3.10+
-- Stereolabs ZED SDK 5.0.7
+- Stereolabs ZED SDK 5.1.0
 - pyZED 包
 - OpenGL 3.3+
 - NumPy
@@ -204,6 +221,10 @@ python spatial_mapping.py
 - 如果程序无法启动，请检查ZED SDK是否正确安装
 - 如果出现OpenGL错误，请更新显卡驱动程序
 - 如果保存失败，请检查data文件夹的写入权限
+ - 如果在按下空格开始空间映射时出现：`Cannot use Spatial mapping: Positional tracking not enabled` 或提示定位状态不是 `OK`，说明在启用空间映射前定位跟踪未处于有效状态。现版本脚本在开始映射前会自动重新启用并重置定位跟踪，并进行约 3 秒的预热抓帧与状态轮询（必须达到 `OK` 才启用映射）；若仍非 `OK` 则跳过本次启用并提示。建议：
+   - 按空格前将相机对准有纹理/几何特征的区域，略微移动相机至日志出现 `OK`（不依赖 `SEARCHING FLOOR PLANE`）
+   - 观察日志：`Positional tracking reset` 和后续 `Tracking state: OK` 是否出现
+   - 若使用 SVO/网络流，确认流支持定位跟踪（必要时确保 IMU/位姿信息或使用特征丰富的视频源）
 
 ## 技术支持
 如果您需要帮助，请访问我们的社区网站：https://community.stereolabs.com/
@@ -212,3 +233,6 @@ python spatial_mapping.py
 - [ZED SDK 官方文档](https://www.stereolabs.com/docs/)
 - [ZED SDK Python API](https://www.stereolabs.com/docs/api/python/)
 - [空间映射 API 使用指南](https://www.stereolabs.com/docs/spatial-mapping/using-mapping/)
+### 与官方示例对齐的改动
+- 取消 `set_floor_as_origin=True`，避免定位状态长期停留在 `SEARCHING FLOOR PLANE` 导致映射启用失败。
+- 启用映射前等待定位跟踪状态为 `OK`，与官方示例在时序上的隐含前提保持一致（示例未设置地面为原点，因此更快进入 `OK`）。

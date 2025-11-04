@@ -1,0 +1,22 @@
+位平面条纹检测失败列表
+========================================
+pattern_00.png: std=127.22, edge_ratio=0.0003
+pattern_01.png: std=127.22, edge_ratio=0.0003
+pattern_02.png: std=127.22, edge_ratio=0.0005
+pattern_03.png: std=127.22, edge_ratio=0.0005
+pattern_04.png: std=127.22, edge_ratio=0.0010
+pattern_05.png: std=127.22, edge_ratio=0.0010
+pattern_06.png: std=127.22, edge_ratio=0.0018
+pattern_07.png: std=127.22, edge_ratio=0.0018
+pattern_22.png: std=127.50, edge_ratio=0.0003
+pattern_23.png: std=127.50, edge_ratio=0.0003
+pattern_24.png: std=56.54, edge_ratio=0.0005
+pattern_25.png: std=56.54, edge_ratio=0.0005
+pattern_26.png: std=127.33, edge_ratio=0.0005
+pattern_27.png: std=127.33, edge_ratio=0.0005
+pattern_28.png: std=127.33, edge_ratio=0.0009
+pattern_29.png: std=127.33, edge_ratio=0.0009
+pattern_30.png: std=127.33, edge_ratio=0.0019
+pattern_31.png: std=127.33, edge_ratio=0.0019
+pattern_46.png: std=127.50, edge_ratio=0.0005
+pattern_47.png: std=127.50, edge_ratio=0.0005
