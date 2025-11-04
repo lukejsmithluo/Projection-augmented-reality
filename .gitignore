@@ -1,3 +1,14 @@
+# Requested ignores
+/Pre-scanned point cloud/zed_env/
+/procam-calibration/capture_*/
+/procam-calibration/**/capture_*/
+/procam-calibration/capture_*/**
+/procam-calibration/**/capture_*/**
+/procam-calibration/graycode_pattern/
+/procam-calibration/graycode_pattern/**
+/procam-calibration/**/graycode_pattern/
+/procam-calibration/**/graycode_pattern/**
+
 # Virtual Environments
 zed_env/
 venv/
@@ -6,14 +17,14 @@ ENV/
 .venv/
 .env/
 
-# Python
+# Python caches and bytecode
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 .Python
+
+# Build and distribution
 build/
-develop-eggs/
 dist/
 downloads/
 eggs/
@@ -33,12 +44,12 @@ MANIFEST
 *.manifest
 *.spec
 
-# Installer logs
+# Logs
 pip-log.txt
 pip-delete-this-directory.txt
+*.log
 
-# Unit test / coverage reports
-htmlcov/
+# Testing / coverage
 .tox/
 .coverage
 .coverage.*
@@ -49,50 +60,24 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Jupyter Notebook
+# Jupyter
 .ipynb_checkpoints
 
 # pyenv
 .python-version
 
-# celery beat schedule file
-celerybeat-schedule
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
+# Environments backup
 env.bak/
 venv.bak/
 
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# IDE
+# IDE settings
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS
+# OS files
 .DS_Store
 .DS_Store?
 ._*
@@ -105,12 +90,6 @@ Thumbs.db
 *.svo
 *.svo2
 
-# Large output files (optional - uncomment if you don't want to track large mesh files)
-# data/*.obj
-# data/*.mtl
-# data/*.png
-
 # Temporary files
 *.tmp
 *.temp
-*.log
