@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.9
+    hooks:
+      - id: ruff
+        name: Ruff (lint)
+        files: ^(src|tests|scripts|\.trae)/
+        exclude: ^Pre-scanned point cloud/|^Projector-Calibration/
+      - id: ruff-format
+        name: Ruff (format)
+        files: ^(src|tests|scripts|\.trae)/
+        exclude: ^Pre-scanned point cloud/|^Projector-Calibration/
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        files: ^(src|tests|scripts|\.trae)/
+        exclude: ^Pre-scanned point cloud/|^Projector-Calibration/
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        files: ^(src|tests|scripts|\.trae)/
+        exclude: ^Pre-scanned point cloud/|^Projector-Calibration/
+  - repo: local
+    hooks:
+      - id: pytest-non-hardware
+        name: Run pytest (non-hardware)
+        entry: python -m pytest -m "not hardware"
+        language: system
+        pass_filenames: false
