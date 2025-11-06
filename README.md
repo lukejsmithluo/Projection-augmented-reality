@@ -49,3 +49,22 @@ git rm -r --cached procam-calibration/capture_*
 
 ## 项目使用手册
 - 详见 `docs/USER_MANUAL.md`（中文），包含快速开始、API/UI 说明、模块运行指南、常见问题与开发规范。
+ - 若你只是想在浏览器上使用接口（无需了解代码），可参考：`docs/WEB_API_USAGE.md`（通过 `/docs` 交互文档直接调用接口）。
+
+## 一键启动后端服务（适合非开发者）
+在项目根目录运行：
+```
+python main.py
+```
+启动后访问：`http://127.0.0.1:8000/docs`（Swagger UI，可在线执行请求）。
+
+可选环境变量：
+- `API_HOST`（默认 `127.0.0.1`）
+- `API_PORT`（默认 `8000`）
+- `API_RELOAD`（默认启用；设置为 `0` 或 `false` 关闭热重载）
+
+开发者启动方式（手动设置 PYTHONPATH）：
+```
+$env:PYTHONPATH = (Resolve-Path .).Path
+python -m uvicorn src.server.main:create_app --factory --reload
+```
