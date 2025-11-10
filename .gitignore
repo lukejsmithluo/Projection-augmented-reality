@@ -2,6 +2,7 @@
 /Pre-scanned point cloud/zed_env/
 /Pre-scanned point cloud/data/
 /Projector-Calibration/capture_*/
+/Projector-Calibration/sample_data/
 /Projector-Calibration/**/capture_*/
 /Projector-Calibration/capture_*/**
 /Projector-Calibration/**/capture_*/**

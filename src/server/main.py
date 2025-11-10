@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 from ..common.config import AppSettings
 from ..common.logging import setup_logging
@@ -24,6 +25,11 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health():
         return {"status": "ok"}
+
+    # 根路径跳转至交互文档，便于非开发者直接使用
+    @app.get("/", include_in_schema=False)
+    def root():
+        return RedirectResponse(url="/docs")
 
     # 模块注册中心实例与模块注册
     registry = ModuleRegistry()

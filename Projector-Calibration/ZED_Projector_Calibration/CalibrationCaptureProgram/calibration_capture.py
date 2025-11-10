@@ -286,7 +286,9 @@ def select_graycode_folder():
 
 def main():
     print("=== ZED 2i 投影-拍摄-标定程序 ===")
-    base_dir = Path("e:/OrganizedWork/susTech/HCI/XProjection/AutoProjectionProject/Temp/procam-calibration")
+    # 将输出与标定脚本目录指向当前仓库的 Projector-Calibration 目录
+    repo_root = Path(__file__).resolve().parents[2]  # .../Projector-Calibration
+    base_dir = repo_root
     calibrate_py = base_dir / "calibrate_optimized.py"
     camera_json = base_dir / "camera_config.json"
 

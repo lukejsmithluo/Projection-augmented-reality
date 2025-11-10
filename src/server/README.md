@@ -3,6 +3,7 @@
 此目录包含 FastAPI 应用与API：
 - `main.py`：应用入口与健康检查路由。
 - `api/`：依赖、Schema、路由（映射/标定）。
+ - 根路径 `/`：已跳转至 `/docs`（Swagger UI），便于非开发者直接使用接口。
 
 运行示例：
  ```powershell
@@ -37,3 +38,4 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/calibration/run" -Method POST -Con
 更新记录：
 - 2025-11-05：启用风格检查（ruff/black/isort）；本目录 Python 文件已按规则格式化，未改变业务逻辑。
 - 2025-11-05：映射/标定路由接入模块包装类；新增示例请求体与 PowerShell 调用示例。
+ - 2025-11-05：新增根路径 `/` 跳转至 `/docs`，解决首页访问无法看到接口文档的问题。

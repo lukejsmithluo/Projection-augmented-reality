@@ -35,7 +35,10 @@ Then, project the gray code patterns generated in the previous step from the pro
 
 Although minimum required shot is one, it is recommended to capture more than 5 times with different attitudes of the chessboard to improve the calibration accuracy.
 
-Captured images must be saved as `./capture_*/graycode_*.(png/jpg)`.
+Captured images will be saved as `./capture_*/graycode_*.(png/jpg)` in the `Projector-Calibration/` directory.
+If you use the helper script `ZED_Projector_Calibration/CalibrationCaptureProgram/calibration_capture.py`,
+it now writes outputs to `Projector-Calibration/capture_*` and invokes `Projector-Calibration/calibrate_optimized.py` directly.
+This fixes previous behavior where outputs were mistakenly written to an external absolute path.
 
 <table>
    <tr>
@@ -67,6 +70,13 @@ By indicating this option, the intrinsic camera parameters will be fixed when co
 See "camera_config.json" as an example.
 
 Calibration result will be displayed on your terminal and saved in `./calibration_result.xml` (with cv::FileStorage format).
+
+## Notes
+- Ensure Stereolabs ZED SDK Python API (`pyzed.sl`) is installed and the camera is not occupied by other applications.
+- Large captured image sets can be heavy; consider adding ignore rules for `Projector-Calibration/capture_*/` in VCS if needed.
+
+## Update Log
+- 2025-11-05: Fixed capture output path and calibration script invocation to use the repository's `Projector-Calibration` directory.
 
 ## Additional Resource
 
