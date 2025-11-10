@@ -1,6 +1,9 @@
 # Requested ignores
 /Pre-scanned point cloud/zed_env/
-/Pre-scanned point cloud/data/
+/Pre-scanned point cloud/data/*
+!/Pre-scanned point cloud/data/*.obj
+!/Pre-scanned point cloud/data/*.mtl
+!/Pre-scanned point cloud/data/*.png
 /Projector-Calibration/capture_*/
 /Projector-Calibration/sample_data/
 /Projector-Calibration/**/capture_*/

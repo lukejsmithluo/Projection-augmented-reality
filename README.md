@@ -7,7 +7,7 @@
 ## Git忽略策略
  已在根目录配置 `.gitignore`，以确保不会将临时或体积巨大的文件提交到版本库：
 - 忽略 `Pre-scanned point cloud/zed_env/` 虚拟环境目录（用户指定）
-- 忽略 `Pre-scanned point cloud/data/` 的映射输出产物（大型 `.obj/.mtl/.png` 等）
+- 跟踪 `Pre-scanned point cloud/data/` 中的资产文件（`.obj/.mtl/.png`），其余内容默认忽略
 - 忽略 `procam-calibration/` 下所有以 `capture_` 开头的目录（用户指定），包括子目录中的 `capture_*`，且**递归忽略其所有内容**（已添加 `capture_*/` 与 `capture_*/**` 规则）
  - 忽略 `procam-calibration/graycode_pattern/` 目录及其所有内容（含子目录匹配规则）
 - 忽略通用虚拟环境、Python缓存、IDE配置、操作系统隐藏文件等
@@ -29,6 +29,7 @@ git rm -r --cached procam-calibration/capture_*
 
 更新记录：
 - 2025-11-05：完善 `.gitignore`，新增 `Pre-scanned point cloud/data/` 与 `.ruff_cache/` 忽略，避免上传大体积产物与工具缓存。
+- 2025-11-10：调整忽略策略，允许提交 `Pre-scanned point cloud/data/` 下的 `.obj/.mtl/.png` 资产文件；其余仍忽略以控制仓库体积。
 ## 框架初始化（2025-11-05）
 
 为支持模块化架构与CI/CD，新增以下目录与文件：
