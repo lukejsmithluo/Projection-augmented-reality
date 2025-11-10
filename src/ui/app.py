@@ -3,15 +3,8 @@ from __future__ import annotations
 import sys
 
 import requests
-from PyQt6.QtWidgets import (
-    QApplication,
-    QLabel,
-    QMainWindow,
-    QPushButton,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import (QApplication, QLabel, QMainWindow, QPushButton,
+                             QTabWidget, QVBoxLayout, QWidget)
 
 
 class MainWindow(QMainWindow):

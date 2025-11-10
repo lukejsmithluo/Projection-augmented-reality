@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 
 from ....common.registry import ModuleRegistry
-from ....modules.projector_calibration.config import ProjectorCalibrationSettings
+from ....modules.projector_calibration.config import \
+    ProjectorCalibrationSettings
 from ..deps import get_registry
 from ..schemas.calibration import CalibrationRunRequest
 

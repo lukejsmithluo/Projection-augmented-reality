@@ -183,6 +183,9 @@ python spatial_mapping.py
 - **映射范围**: MEDIUM (默认)
 - **最大内存使用**: 2048MB
 
+## 维护记录
+- 2025-11-10：为满足 CI 的风格检查（isort/black/ruff），对相关 Python 文件的导入顺序与格式进行了统一整理。本次维护不影响功能与使用方式。
+
 ## 依赖项
 - Python 3.10+
 - Stereolabs ZED SDK 5.1.0

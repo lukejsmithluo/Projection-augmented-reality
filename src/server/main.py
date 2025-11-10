@@ -6,9 +6,9 @@ from fastapi.responses import RedirectResponse
 from ..common.config import AppSettings
 from ..common.logging import setup_logging
 from ..common.registry import ModuleRegistry
-from .api.routes import calibration_routes, mapping_routes
 from ..modules.pre_scanned_point_cloud.module import SpatialMappingModule
 from ..modules.projector_calibration.module import ProjectorCalibrationModule
+from .api.routes import calibration_routes, mapping_routes
 
 settings = AppSettings()
 setup_logging()
