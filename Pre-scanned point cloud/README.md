@@ -95,6 +95,9 @@ python spatial_mapping.py --input_svo_file <输入svo文件> --ip_address <ip地
   - `MEDIUM`: 中级过滤（默认值），平衡质量和细节
   - `HIGH`: 高级过滤，大幅减少噪声但可能丢失细节
  - `--units`: 坐标单位选择，支持 `METER` 与 `CENTIMETER`。默认值为 `CENTIMETER`，以便与虚幻引擎（Unreal Engine，单位为厘米）无缝对接。
+ - `--mapping_resolution`: 空间映射分辨率预设，可选 `LOW|MEDIUM|HIGH`，默认 `MEDIUM`
+ - `--mapping_range`: 空间映射范围预设，可选 `SHORT|MEDIUM|LONG`，默认 `MEDIUM`
+ - `--max_memory_usage`: 空间映射最大内存占用（MB），默认 `2048`（保留兼容参数 `--max_memory_mb`，优先使用本参数）
 
 #### 单位与虚幻对接
 - 本程序生成的 `.obj` 顶点坐标遵循 `InitParameters.coordinate_units` 设置。
@@ -135,9 +138,17 @@ python spatial_mapping.py --build_mesh --save_texture --mesh_filter NONE
 # 使用高级过滤生成更干净的网格
 python spatial_mapping.py --build_mesh --save_texture --mesh_filter HIGH
 
+# 控制空间映射分辨率与范围及内存
+python spatial_mapping.py --build_mesh --mapping_resolution MEDIUM --mapping_range MEDIUM --max_memory_usage 2048
+
 # 仅生成点云文件
 python spatial_mapping.py
 ```
+
+#### NONE 模式贴图兼容
+- 当使用 `--mesh_filter NONE` 且开启 `--save_texture` 时，程序会在内部禁用 `chunk-only` 映射以允许跨块进行纹理烘焙，从而在不进行几何过滤的前提下生成 `.mtl/.png`。
+- 此兼容策略不会改变 `LOW/MEDIUM/HIGH` 模式的现有流程，仅在 `NONE` 模式下启用；在极端场景下可能略微增加贴图阶段耗时。
+- 示例：`python spatial_mapping.py --build_mesh --save_texture --mesh_filter NONE`
 
 ### 操作说明
 - 按**空格键**开始/停止映射过程

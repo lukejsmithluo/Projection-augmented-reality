@@ -23,15 +23,39 @@ python -m pip install "uvicorn[standard]"
 
 ## 常用接口操作
 ### 空间映射（Mapping）
-1) 启动映射（构建网格并保存纹理）：
-   - 选择 `POST /mapping/start` → “Try it out” → 在 Request body 输入：
+1) 启动映射（支持全部参数配置）：
+   - 选择 `POST /mapping/start` → “Try it out” → 在 Request body 输入（按需填写，以下为完整字段及默认值）：
    ```json
    {
      "build_mesh": true,
-     "save_texture": true
+     "save_texture": true,
+     "input_svo_file": "",
+     "ip_address": "",
+     "resolution": "",
+     "mesh_filter": "MEDIUM",
+     "units": "CENTIMETER",
+     "mapping_resolution": "MEDIUM",
+     "mapping_range": "MEDIUM",
+     "max_memory_usage": 2048,
+     "update_rate_ms": 700,
+     "depth_mode": "NEURAL_PLUS"
    }
    ```
    - 点击 “Execute”，返回示例：`{"accepted": true}` 表示已开始。
+
+   字段说明（与 `Pre-scanned point cloud/src/spatial_mapping.py` 一致）：
+   - 运行模式：
+     - `build_mesh` 启用网格构建；`save_texture` 保存材质与纹理（`.mtl/.png`）。
+   - 输入与分辨率（可选其一或都为空）：
+     - `input_svo_file` 使用离线 SVO 文件；`ip_address` 连接网络摄像头；`resolution` 指定相机分辨率（不填按设备默认）。
+   - 空间映射参数：
+     - `mesh_filter`：`NONE|LOW|MEDIUM|HIGH`（默认 `MEDIUM`）。
+     - `units`：`METER|CENTIMETER`（默认 `CENTIMETER`，与 Unreal 对接推荐厘米）。
+     - `mapping_resolution`：`LOW|MEDIUM|HIGH`（默认 `MEDIUM`）。
+     - `mapping_range`：`SHORT|MEDIUM|LONG`（默认 `MEDIUM`）。
+     - `max_memory_usage`：最大内存使用（MB，默认 `2048`）。
+     - `update_rate_ms`：映射更新周期（毫秒，默认 `700`）。
+     - `depth_mode`：`NEURAL|NEURAL_PLUS`（默认 `NEURAL_PLUS`）。
 
 2) 查询状态：
    - 选择 `GET /mapping/status` → “Execute”，返回示例：
@@ -49,6 +73,7 @@ python -m pip install "uvicorn[standard]"
 使用须知：
 - 必须在真实硬件环境运行（ZED 2i 摄像机），且空间映射模块强制使用 `zed_env` 虚拟环境。
 - 若相机被其他程序占用（如 ZED Explorer），请先关闭它再启动映射。
+ - 在 `mesh_filter` 为 `NONE` 且 `save_texture=true` 时，系统会自动禁用 `chunk-only` 模式以允许跨块纹理烘焙，确保 `.mtl/.png` 正常生成（不影响 `LOW/MEDIUM/HIGH` 模式行为）。
 
 ### 投影标定（Calibration）
 1) 启动标定（按你的投影仪分辨率）：

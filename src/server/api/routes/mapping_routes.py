@@ -17,7 +17,23 @@ def start_mapping(
     if mod is None:
         return {"accepted": False, "error": "Module not registered"}
     mod.configure(
-        SpatialMappingSettings(build_mesh=req.build_mesh, save_texture=req.save_texture)
+        SpatialMappingSettings(
+            # 运行模式
+            build_mesh=req.build_mesh,
+            save_texture=req.save_texture,
+            # 输入与分辨率
+            input_svo_file=req.input_svo_file,
+            ip_address=req.ip_address,
+            resolution=req.resolution,
+            # 空间映射与导出
+            mesh_filter=req.mesh_filter,
+            units=req.units,
+            mapping_resolution=req.mapping_resolution,
+            mapping_range=req.mapping_range,
+            max_memory_usage=req.max_memory_usage,
+            update_rate_ms=req.update_rate_ms,
+            depth_mode=req.depth_mode,
+        )
     )
     mod.start()
     return {"accepted": True}

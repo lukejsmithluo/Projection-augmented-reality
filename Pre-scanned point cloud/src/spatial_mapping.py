@@ -208,13 +208,33 @@ def make_spatial_mapping_parameters(opt, build_mesh):
     }
     res_choice = res_map.get(opt.mapping_resolution, sl.MAPPING_RESOLUTION.MEDIUM)
 
+    # Range preset mapping: SHORT, MEDIUM, LONG
+    range_map = {
+        'SHORT': sl.MAPPING_RANGE.SHORT,
+        'MEDIUM': sl.MAPPING_RANGE.MEDIUM,
+        'LONG': sl.MAPPING_RANGE.LONG,
+    }
+    range_choice = range_map.get(getattr(opt, 'mapping_range', 'MEDIUM'), sl.MAPPING_RANGE.MEDIUM)
+
     map_type = sl.SPATIAL_MAP_TYPE.MESH if build_mesh else sl.SPATIAL_MAP_TYPE.FUSED_POINT_CLOUD
+    # To allow texture/material export in NONE mode, avoid chunk-only mapping
+    # when building mesh with texture saving enabled; this keeps geometry
+    # unfiltered while enabling texture baking across chunks.
+    use_chunk_only = True
+    if build_mesh and bool(opt.save_texture) and opt.mesh_filter == 'NONE':
+        use_chunk_only = False
+
+    # Determine effective max memory usage (MB), prefer --max_memory_usage if provided
+    effective_max_memory = (
+        int(opt.max_memory_usage) if getattr(opt, 'max_memory_usage', None) is not None else int(opt.max_memory_mb)
+    )
+
     params = sl.SpatialMappingParameters(
         resolution=res_choice,
-        mapping_range=sl.MAPPING_RANGE.MEDIUM,
-        max_memory_usage=int(opt.max_memory_mb),
+        mapping_range=range_choice,
+        max_memory_usage=effective_max_memory,
         save_texture=bool(opt.save_texture) if build_mesh else False,
-        use_chunk_only=True,
+        use_chunk_only=use_chunk_only,
         reverse_vertex_order=False,
         map_type=map_type,
     )
@@ -301,7 +321,10 @@ if __name__ == "__main__":
     parser.add_argument('--units', type=str, choices=['METER', 'CENTIMETER'], default='CENTIMETER', help='Coordinate units for exported geometry (Unreal uses CENTIMETER)')
     parser.add_argument('--save_texture', action='store_true', help='Save and export texture/material when building mesh (enable by passing this flag)')
     parser.add_argument('--mapping_resolution', type=str, choices=['LOW', 'MEDIUM', 'HIGH'], default='MEDIUM', help='Spatial mapping resolution preset')
-    parser.add_argument('--max_memory_mb', type=int, default=2048, help='Max memory for spatial mapping (in MB)')
+    parser.add_argument('--mapping_range', type=str, choices=['SHORT', 'MEDIUM', 'LONG'], default='MEDIUM', help='Spatial mapping range preset')
+    # Deprecated alias retained for compatibility; prefer --max_memory_usage
+    parser.add_argument('--max_memory_mb', type=int, default=2048, help='[Deprecated] Use --max_memory_usage. Max memory for spatial mapping (in MB)')
+    parser.add_argument('--max_memory_usage', type=int, default=None, help='Max memory for spatial mapping (in MB). Default 2048 if not set')
     parser.add_argument('--update_rate_ms', type=int, default=700, help='Async update interval for spatial map requests (ms)')
     parser.add_argument('--depth_mode', type=str, choices=['NEURAL', 'NEURAL_PLUS'], default='NEURAL_PLUS', help='Depth mode (default NEURAL_PLUS per user preference)')
     opt = parser.parse_args()
