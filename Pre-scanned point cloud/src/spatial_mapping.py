@@ -82,6 +82,9 @@ def main(opt):
     pose = sl.Pose()
 
     viewer = gl.GLViewer()
+    # Set far clip so that up to 5 meters are visible without culling.
+    # Respect coordinate units: CENTIMETER -> 500 cm; METER -> 5 m
+    viewer.zfar = 500.0 if opt.units == 'CENTIMETER' else 5.0
     viewer.init(zed.get_camera_information().camera_configuration.calibration_parameters.left_cam, pymesh, int(opt.build_mesh))
     print("Press 'Space' to enable / disable spatial mapping")
     print("Stop mapping to export an OBJ (and texture if enabled)")
