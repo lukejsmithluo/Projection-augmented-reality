@@ -8,7 +8,8 @@ from ..common.logging import setup_logging
 from ..common.registry import ModuleRegistry
 from ..modules.pre_scanned_point_cloud.module import SpatialMappingModule
 from ..modules.projector_calibration.module import ProjectorCalibrationModule
-from .api.routes import calibration_routes, mapping_routes
+from ..modules.ai_image_generation.module import AIImageGenerationModule
+from .api.routes import calibration_routes, mapping_routes, ai_image_routes
 
 settings = AppSettings()
 setup_logging()
@@ -21,6 +22,7 @@ def create_app() -> FastAPI:
     # 注册模块路由（占位，后续模块包装类接入）
     app.include_router(mapping_routes.router, prefix="/mapping")
     app.include_router(calibration_routes.router, prefix="/calibration")
+    app.include_router(ai_image_routes.router, prefix="/ai-image")
 
     @app.get("/health")
     def health():
@@ -35,6 +37,7 @@ def create_app() -> FastAPI:
     registry = ModuleRegistry()
     registry.register("spatial_mapping", SpatialMappingModule())
     registry.register("projector_calibration", ProjectorCalibrationModule())
+    registry.register("ai_image_generation", AIImageGenerationModule())
     app.state.registry = registry
     return app
 

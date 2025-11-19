@@ -18,6 +18,9 @@
 - 标定（Calibration）：
   - `POST /calibration/run` 请求体示例：`{"proj_height": 1080, "proj_width": 1920, "rounds": 1}` → 返回 `{"accepted": true}`。
   - `GET /calibration/result` → 当前返回占位信息（后续解析输出文件）。
+ - AI 图像生成（AI Image Generation）：
+   - `POST /ai-image/edit`（multipart）上传图片并提供 `prompt`，可选 `size`（默认 `1024x1024`），可选 `api_key`（若提供将覆盖当前进程环境变量）。支持多图上传字段 `images`（保留左→右的选择顺序），当前后端将以“最新一张”作为实际生成输入。成功返回生成的图片文件路径：`{"accepted": true, "output_file": "data/ai_images/outputs/gen_YYYYmmdd_HHMMSS.png"}`。若未配置 `OPENAI_API_KEY`，返回错误：`{"accepted": false, "error_code": "NO_API_KEY", "error": "OPENAI_API_KEY not configured"}`。
+   - `GET /ai-image/status` → 返回模块状态与最近输出文件路径。
 
 在 Windows PowerShell 中调用示例：
 ```powershell
@@ -29,6 +32,24 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/mapping/start" -Method POST -Conte
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/mapping/stop" -Method POST
 ; # 运行标定
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/calibration/run" -Method POST -ContentType 'application/json' -Body '{"proj_height":1080,"proj_width":1920,"rounds":1}'
+ ; # 设置 OpenAI API Key（推荐使用 .env 文件）
+ # 在项目根目录创建 .env 文件，并写入：
+ # OPENAI_API_KEY=sk-xxxxx
+ ; # 调用 AI 图像编辑接口（multipart）
+ $filePath = "C:\\path\\to\\local.png"
+ # 单图（兼容旧用法）
+ $form = @{ prompt = "make it look like watercolor"; size = "1024x1024"; api_key = "sk-xxxxx"; image = Get-Item $filePath }
+ Invoke-WebRequest -Uri "http://127.0.0.1:8000/ai-image/edit" -Method POST -Form $form
+
+ # 多图（建议使用 curl 传多个 -F 参数，更好地保留顺序）：
+ curl -X POST \
+   -F "prompt=make it look like watercolor" \
+   -F "size=1024x1024" \
+   -F "api_key=sk-xxxxx" \
+   -F "images=@C:/path/to/img1.png" \
+   -F "images=@C:/path/to/img2.png" \
+   -F "images=@C:/path/to/img3.png" \
+   http://127.0.0.1:8000/ai-image/edit
 ```
 
 ## 模块注册中心与依赖

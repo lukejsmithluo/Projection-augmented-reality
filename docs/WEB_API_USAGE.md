@@ -1,6 +1,6 @@
 # Web API 使用指南（通过浏览器操作 /docs）
 
-本指南面向不熟悉代码的使用者，教你如何在浏览器的 Swagger UI（交互文档）中直接调用项目开放的接口完成空间映射与投影标定。
+本指南面向不熟悉代码的使用者，教你如何在浏览器的 Swagger UI（交互文档）中直接调用项目开放的接口完成空间映射、投影标定与 AI 图像编辑。
 
 ## 一键启动服务
 - 在项目根目录运行：
@@ -103,3 +103,29 @@ python -m pip install "uvicorn[standard]"
 - 交互文档（Swagger UI）：`http://127.0.0.1:8000/docs`
 - 只读文档（ReDoc）：`http://127.0.0.1:8000/redoc`
 - OpenAPI 规范：`http://127.0.0.1:8000/openapi.json`
+### AI 图像生成（AI Image Generation）
+1) 提交图片编辑任务：
+   - 选择 `POST /ai-image/edit` → “Try it out”。
+   - 在 `formData` 部分填写：
+     - `prompt`（必填）：描述需要的编辑效果，例如 `make it look like watercolor`。
+     - `size`（可选）：输出尺寸，默认 `1024x1024`，例如 `512x512`。
+     - `api_key`（可选）：若未在 `.env` 配置全局 `OPENAI_API_KEY`，可在此填写一次性使用的 Key（建议私密环境使用）。
+     - `image`（必填）：选择本地图片文件（png/jpg）。
+   - 点击 “Execute”，成功后返回：
+   ```json
+   { "accepted": true, "output_file": "data/ai_images/outputs/gen_YYYYmmdd_HHMMSS.png" }
+   ```
+   - 若后端未配置或未提供 `api_key`，将返回：
+   ```json
+   { "accepted": false, "error_code": "NO_API_KEY", "error": "OPENAI_API_KEY not configured" }
+   ```
+
+2) 查看模块状态：
+   - 选择 `GET /ai-image/status` → “Execute”，返回示例：
+   ```json
+   { "module": "ai_image_generation", "status": { "state": "RUNNING", "last_output": "...", "has_api_key": true } }
+   ```
+
+使用须知：
+- 推荐在项目根目录 `.env` 中配置 `OPENAI_API_KEY=sk-xxxxx`，避免在浏览器输入 Key 暴露于历史记录。
+- UI 中的“AI图像生成”标签支持多图选择与缩略图预览；最新选择的图片显示在最左，最早选择的在最右（超出 3 张可横向滚动）。
