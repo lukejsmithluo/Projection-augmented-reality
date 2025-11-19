@@ -1,8 +1,6 @@
 # [Test] 单元测试文件：AI图像生成路由（使用完可删除）
 from __future__ import annotations
 
-import os
-
 from fastapi.testclient import TestClient
 
 from src.server.main import create_app

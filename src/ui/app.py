@@ -4,6 +4,7 @@ import os
 import sys
 
 import requests
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QApplication,
@@ -20,7 +21,6 @@ from PyQt6.QtWidgets import (
     QBoxLayout,
     QFrame,
 )
-from PyQt6.QtCore import Qt
 
 
 class MainWindow(QMainWindow):
@@ -103,7 +103,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(status)
 
         prompt_input = QLineEdit()
-        prompt_input.setPlaceholderText("请输入提示词（如：make it look like watercolor）")
+        prompt_input.setPlaceholderText(
+            "请输入提示词（如：make it look like watercolor）"
+        )
         layout.addWidget(prompt_input)
 
         size_input = QLineEdit()
@@ -175,7 +177,12 @@ class MainWindow(QMainWindow):
             lbl.setScaledContents(True)
             pix = QPixmap(path)
             if not pix.isNull():
-                pix = pix.scaled(200, 112, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                pix = pix.scaled(
+                    200,
+                    112,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
                 lbl.setPixmap(pix)
             else:
                 lbl.setText("无法加载")
@@ -236,17 +243,22 @@ class MainWindow(QMainWindow):
                         f = open(pth, "rb")
                         opened_files.append(f)
                         fname = os.path.basename(pth)
-                        files_arg.append((
-                            "images",
-                            (fname, f, _guess_mime(pth)),
-                        ))
+                        files_arg.append(
+                            (
+                                "images",
+                                (fname, f, _guess_mime(pth)),
+                            )
+                        )
                     data = {"prompt": p}
                     if s:
                         data["size"] = s
                     if api_key:
                         data["api_key"] = api_key
                     resp = requests.post(
-                        "http://127.0.0.1:8000/ai-image/edit", files=files_arg, data=data, timeout=30
+                        "http://127.0.0.1:8000/ai-image/edit",
+                        files=files_arg,
+                        data=data,
+                        timeout=30,
                     )
                 finally:
                     for f in opened_files:
@@ -263,12 +275,18 @@ class MainWindow(QMainWindow):
                             pix = QPixmap(out)
                             if not pix.isNull():
                                 # 以保持比例的方式填充预览区域
-                                scaled = pix.scaled(preview.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                                scaled = pix.scaled(
+                                    preview.size(),
+                                    Qt.AspectRatioMode.KeepAspectRatio,
+                                    Qt.TransformationMode.SmoothTransformation,
+                                )
                                 preview.setPixmap(scaled)
                             else:
                                 preview.setText("预览失败：无法加载图片")
                     else:
-                        status.setText(f"生成失败：{payload.get('error_code')} - {payload.get('error')}")
+                        status.setText(
+                            f"生成失败：{payload.get('error_code')} - {payload.get('error')}"
+                        )
                 else:
                     status.setText(f"请求失败：HTTP {resp.status_code}")
             except Exception as e:
@@ -289,6 +307,7 @@ class MainWindow(QMainWindow):
                     return
                 # 查找最近输出图片（png/jpg/jpeg）
                 import glob
+
                 files = []
                 for pat in ("*.png", "*.jpg", "*.jpeg"):
                     files.extend(glob.glob(os.path.join(out_dir, pat)))

@@ -57,6 +57,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/calibration/run" -Method POST -Con
 - 路由通过依赖注入（`Depends(get_registry)`) 获取注册中心并调用模块的 `configure()/start()/stop()/status()`。
 
 更新记录：
+- 2025-11-19：风格维护（imports 排序与格式统一），修复 CI isort/black 提示；不涉及业务改动。
 - 2025-11-10：风格维护（imports 排序与格式统一），修复 CI 提示的 isort/black 问题；不涉及业务改动。
 - 2025-11-05：启用风格检查（ruff/black/isort）；本目录 Python 文件已按规则格式化，未改变业务逻辑。
 - 2025-11-05：映射/标定路由接入模块包装类；新增示例请求体与 PowerShell 调用示例。

@@ -34,7 +34,9 @@ class OpenAIImageService:
     def has_api_key(self) -> bool:
         return bool(os.getenv("OPENAI_API_KEY"))
 
-    def edit_image(self, prompt: str, image_path: Path, size: Optional[str] = None) -> Path:
+    def edit_image(
+        self, prompt: str, image_path: Path, size: Optional[str] = None
+    ) -> Path:
         """Edit image using prompt; returns saved output image path.
 
         This uses the Images API 'edits' endpoint (if available) on model 'gpt-image-1'.
@@ -46,7 +48,11 @@ class OpenAIImageService:
             raise FileNotFoundError(f"Input image not found: {image_path}")
 
         use_size = size or self._settings.default_size
-        logger.info("Submitting image edit to OpenAI: model=%s size=%s", self._settings.model, use_size)
+        logger.info(
+            "Submitting image edit to OpenAI: model=%s size=%s",
+            self._settings.model,
+            use_size,
+        )
 
         # Call the OpenAI Images API; result contains b64_json
         with image_path.open("rb") as img_file:

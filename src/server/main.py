@@ -6,10 +6,10 @@ from fastapi.responses import RedirectResponse
 from ..common.config import AppSettings
 from ..common.logging import setup_logging
 from ..common.registry import ModuleRegistry
+from ..modules.ai_image_generation.module import AIImageGenerationModule
 from ..modules.pre_scanned_point_cloud.module import SpatialMappingModule
 from ..modules.projector_calibration.module import ProjectorCalibrationModule
-from ..modules.ai_image_generation.module import AIImageGenerationModule
-from .api.routes import calibration_routes, mapping_routes, ai_image_routes
+from .api.routes import ai_image_routes, calibration_routes, mapping_routes
 
 settings = AppSettings()
 setup_logging()

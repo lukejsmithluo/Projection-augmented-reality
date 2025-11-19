@@ -47,5 +47,6 @@ Invoke-WebRequest -Uri "http://127.0.0.1:8000/ai-image/edit" -Method POST -Form 
 - `services/storage_service.py`：上传与输出文件存储帮助类。
 
 ## 更新记录
+- 2025-11-19：风格维护（imports 排序与格式统一），修复 CI isort/black 提示；不改动业务逻辑。
 - 2025-11-19：新增 AI 图像生成模块与路由，支持图片编辑与输出保存。
 - 2025-11-19：`/ai-image/edit` 支持可选 `api_key` 字段以便在未预置环境变量时即时调用。

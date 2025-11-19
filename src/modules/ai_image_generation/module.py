@@ -33,7 +33,11 @@ class AIImageGenerationModule(ModuleBase):
             self._settings = config
             self._storage = StorageService(self._settings)
             self._svc = OpenAIImageService(self._settings, self._storage)
-            logger.info("AIImageGenerationModule configured: output_dir=%s model=%s", config.output_dir, config.model)
+            logger.info(
+                "AIImageGenerationModule configured: output_dir=%s model=%s",
+                config.output_dir,
+                config.model,
+            )
 
     def start(self) -> None:
         self._state = ModuleState.RUNNING
@@ -49,7 +53,9 @@ class AIImageGenerationModule(ModuleBase):
         }
 
     # Convenience for routes
-    def edit_image(self, prompt: str, upload_name: str, content: bytes, size: Optional[str] = None) -> str:
+    def edit_image(
+        self, prompt: str, upload_name: str, content: bytes, size: Optional[str] = None
+    ) -> str:
         up_path = self._storage.save_upload(upload_name, content)
         out_path = self._svc.edit_image(prompt=prompt, image_path=up_path, size=size)
         self._last_output = str(out_path)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
@@ -31,14 +31,22 @@ async def edit_image(
     # Validate module
     mod = registry.get("ai_image_generation")
     if mod is None or not isinstance(mod, AIImageGenerationModule):
-        return AIImageEditResponse(accepted=False, error_code="MODULE_NOT_REGISTERED", error="Module not registered")
+        return AIImageEditResponse(
+            accepted=False,
+            error_code="MODULE_NOT_REGISTERED",
+            error="Module not registered",
+        )
 
     # Allow providing API key via request to set env at runtime (optional)
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
     # Validate API key presence (avoid external call when missing)
     if not os.getenv("OPENAI_API_KEY"):
-        return AIImageEditResponse(accepted=False, error_code="NO_API_KEY", error="OPENAI_API_KEY not configured")
+        return AIImageEditResponse(
+            accepted=False,
+            error_code="NO_API_KEY",
+            error="OPENAI_API_KEY not configured",
+        )
 
     # Collect images preserving order: earliest -> latest
     img_list: List[UploadFile] = []
@@ -47,12 +55,18 @@ async def edit_image(
     elif image:
         img_list = [image]
     else:
-        return AIImageEditResponse(accepted=False, error_code="NO_IMAGE", error="No image provided")
+        return AIImageEditResponse(
+            accepted=False, error_code="NO_IMAGE", error="No image provided"
+        )
 
     # Basic content-type check (optional)
     for img in img_list:
         if img.content_type and not img.content_type.startswith("image/"):
-            return AIImageEditResponse(accepted=False, error_code="BAD_CONTENT_TYPE", error=f"Unsupported content type: {img.content_type}")
+            return AIImageEditResponse(
+                accepted=False,
+                error_code="BAD_CONTENT_TYPE",
+                error=f"Unsupported content type: {img.content_type}",
+            )
 
     # Process; if multiple provided, use the latest one as effective input
     # (OpenAI Images API currently accepts single image per edit call)
@@ -61,9 +75,16 @@ async def edit_image(
         # Choose the last image as the effective input to generate
         target = img_list[-1]
         data = await target.read()
-        last_out = mod.edit_image(prompt=prompt, upload_name=target.filename or "upload.png", content=data, size=size)
+        last_out = mod.edit_image(
+            prompt=prompt,
+            upload_name=target.filename or "upload.png",
+            content=data,
+            size=size,
+        )
     except Exception as e:
-        return AIImageEditResponse(accepted=False, error_code="GENERATION_FAILED", error=str(e))
+        return AIImageEditResponse(
+            accepted=False, error_code="GENERATION_FAILED", error=str(e)
+        )
 
     return AIImageEditResponse(accepted=True, output_file=last_out)
 
