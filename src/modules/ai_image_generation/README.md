@@ -10,7 +10,7 @@
   - `GET /ai-image/status`（查看模块状态与最近输出）。
 
 ## 配置与环境
-- 依赖：`openai` Python 库（已安装）。
+- 依赖：`openai` Python 库（按需，可选，运行时懒加载）。在 CI 或未安装 `openai` 的环境下，模块可正常导入与运行非硬件测试；若在调用 `/ai-image/edit` 时提供了 `api_key` 但缺失库，后端会返回错误码 `OPENAI_LIB_MISSING`。
 - 环境变量/`.env`：
   - `OPENAI_API_KEY=sk-xxxxx`
 - 默认设置（可通过 `AIImageSettings` 调整）：

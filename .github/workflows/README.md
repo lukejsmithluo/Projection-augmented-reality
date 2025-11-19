@@ -6,6 +6,9 @@
 - 运行风格检查（限作用于 `src/`、`tests/`、`scripts/`、`.trae/`）；
 - 运行非硬件测试：`pytest -m "not hardware"`。
 
+额外依赖说明：
+- 已在 CI 安装步骤中加入 `python -m pip install openai`，用于 AI 图像模块在测试收集阶段避免缺库的导入错误（即使不真实调用 OpenAI 也能顺利完成测试）。
+
 注意：
 - CI 中不运行需要真实硬件或 GUI 交互的测试；
 - 若风格检查或测试失败，将阻止合并。

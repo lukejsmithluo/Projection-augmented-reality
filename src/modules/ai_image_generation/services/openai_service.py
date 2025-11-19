@@ -4,9 +4,7 @@ import base64
 import logging
 import os
 from pathlib import Path
-from typing import Optional
-
-from openai import OpenAI
+from typing import Any, Optional
 
 from ..config import AIImageSettings
 from .storage_service import StorageService
@@ -23,10 +21,16 @@ class OpenAIImageService:
     def __init__(self, settings: AIImageSettings, storage: StorageService) -> None:
         self._settings = settings
         self._storage = storage
-        self._client: Optional[OpenAI] = None
+        # Lazily initialized OpenAI client; avoid ImportError at import time in CI
+        self._client: Optional[Any] = None
 
     def _ensure_client(self) -> None:
         if self._client is None:
+            try:
+                from openai import OpenAI  # type: ignore
+            except ImportError as e:
+                # Surface a controlled error so routes can return a friendly message
+                raise RuntimeError("OPENAI_LIB_MISSING") from e
             # OpenAI client automatically reads OPENAI_API_KEY from env
             self._client = OpenAI()
 
