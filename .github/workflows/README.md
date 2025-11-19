@@ -8,6 +8,7 @@
 
 额外依赖说明：
 - 已在 CI 安装步骤中加入 `python -m pip install openai`，用于 AI 图像模块在测试收集阶段避免缺库的导入错误（即使不真实调用 OpenAI 也能顺利完成测试）。
+ - 已在 CI 安装步骤中加入 `python -m pip install python-multipart`，用于 FastAPI 表单/文件上传（multipart/form-data）路由在测试收集阶段的依赖（否则 FastAPI 会抛出缺少 `python-multipart` 的错误）。
  - `isort` 已与 `black` 对齐为 `--profile black`，避免两者格式风格冲突导致 CI 报错。
 
 注意：

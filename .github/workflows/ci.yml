@@ -23,6 +23,8 @@ jobs:
           python -m pip install ruff black isort
           # Install optional dependency for AI image module to avoid ImportError during test collection
           python -m pip install openai
+          # Install required dependency for FastAPI form/multipart handling
+          python -m pip install python-multipart
       - name: Style checks (ruff/black/isort)
         run: |
           ruff check src tests scripts .trae

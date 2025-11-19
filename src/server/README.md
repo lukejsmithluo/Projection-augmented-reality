@@ -4,6 +4,11 @@
 - `main.py`：应用入口与健康检查路由。
 - `api/`：依赖、Schema、路由（映射/标定）。
  - 根路径 `/`：已跳转至 `/docs`（Swagger UI），便于非开发者直接使用接口。
+ - 表单/文件上传（multipart/form-data）路由需要额外依赖：`python-multipart`。CI 已安装该库，本地开发请执行：
+
+   ```powershell
+   python -m pip install python-multipart
+   ```
 
 运行示例：
  ```powershell
@@ -58,6 +63,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/calibration/run" -Method POST -Con
 
 更新记录：
 - 2025-11-19：风格维护（imports 排序与格式统一），修复 CI isort/black 提示；不涉及业务改动。
+ - 2025-11-19：补充表单上传依赖说明（`python-multipart`）。
 - 2025-11-10：风格维护（imports 排序与格式统一），修复 CI 提示的 isort/black 问题；不涉及业务改动。
 - 2025-11-05：启用风格检查（ruff/black/isort）；本目录 Python 文件已按规则格式化，未改变业务逻辑。
 - 2025-11-05：映射/标定路由接入模块包装类；新增示例请求体与 PowerShell 调用示例。
