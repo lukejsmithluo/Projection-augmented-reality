@@ -10,7 +10,6 @@ from ....modules.ai_image_generation.module import AIImageGenerationModule
 from ..deps import get_registry
 from ..schemas.ai_image import AIImageEditResponse
 
-
 router = APIRouter(tags=["ai-image"])
 
 

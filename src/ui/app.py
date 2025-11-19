@@ -6,21 +6,10 @@ import sys
 import requests
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import (
-    QApplication,
-    QLabel,
-    QMainWindow,
-    QPushButton,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-    QLineEdit,
-    QFileDialog,
-    QScrollArea,
-    QHBoxLayout,
-    QBoxLayout,
-    QFrame,
-)
+from PyQt6.QtWidgets import (QApplication, QBoxLayout, QFileDialog, QFrame,
+                             QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+                             QPushButton, QScrollArea, QTabWidget, QVBoxLayout,
+                             QWidget)
 
 
 class MainWindow(QMainWindow):

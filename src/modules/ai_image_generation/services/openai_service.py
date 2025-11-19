@@ -11,7 +11,6 @@ from openai import OpenAI
 from ..config import AIImageSettings
 from .storage_service import StorageService
 
-
 logger = logging.getLogger(__name__)
 
 
