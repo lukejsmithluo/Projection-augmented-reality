@@ -25,6 +25,8 @@ jobs:
           python -m pip install openai
           # Install required dependency for FastAPI form/multipart handling
           python -m pip install python-multipart
+          # Install HTTP client used by RegionPolicyService (official list fetch)
+          python -m pip install requests
       - name: Style checks (ruff/black/isort)
         run: |
           ruff check src tests scripts .trae
