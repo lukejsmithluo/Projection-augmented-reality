@@ -22,6 +22,22 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
+
+def _api_get(path: str, **kwargs):
+    return requests.get(
+        API_BASE_URL + path,
+        proxies={"http": None, "https": None},
+        **kwargs,
+    )
+
+def _api_post(path: str, **kwargs):
+    return requests.post(
+        API_BASE_URL + path,
+        proxies={"http": None, "https": None},
+        **kwargs,
+    )
+
 
 class MainWindow(QMainWindow):
     """主窗口：模块化Tab界面"""
@@ -41,6 +57,12 @@ class MainWindow(QMainWindow):
         w = QWidget()
         layout = QVBoxLayout()
         status = QLabel("映射控制")
+        # 允许选择与复制错误/状态文本
+        status.setWordWrap(True)
+        status.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         layout.addWidget(status)
 
         btn_start = QPushButton("开始映射")
@@ -48,8 +70,8 @@ class MainWindow(QMainWindow):
 
         def do_start():
             try:
-                resp = requests.post(
-                    "http://127.0.0.1:8000/mapping/start",
+                resp = _api_post(
+                    "/mapping/start",
                     json={"build_mesh": True, "save_texture": True},
                     timeout=5,
                 )
@@ -59,7 +81,7 @@ class MainWindow(QMainWindow):
 
         def do_stop():
             try:
-                resp = requests.post("http://127.0.0.1:8000/mapping/stop", timeout=5)
+                resp = _api_post("/mapping/stop", timeout=5)
                 status.setText(f"停止映射: {resp.status_code}")
             except Exception as e:
                 status.setText(f"停止映射失败: {e}")
@@ -75,14 +97,19 @@ class MainWindow(QMainWindow):
         w = QWidget()
         layout = QVBoxLayout()
         status = QLabel("标定控制")
+        status.setWordWrap(True)
+        status.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         layout.addWidget(status)
 
         btn_run = QPushButton("开始标定")
 
         def do_run():
             try:
-                resp = requests.post(
-                    "http://127.0.0.1:8000/calibration/run",
+                resp = _api_post(
+                    "/calibration/run",
                     json={"proj_height": 1080, "proj_width": 1920, "rounds": 1},
                     timeout=5,
                 )
@@ -100,16 +127,34 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout()
 
         status = QLabel("AI图像生成：上传图片+提示词")
-        layout.addWidget(status)
+        status.setWordWrap(True)
+        status.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        # 添加复制按钮，便于快速复制错误/状态文本
+        status_row = QHBoxLayout()
+        btn_copy_status = QPushButton("复制状态")
+        btn_copy_status.clicked.connect(lambda: QApplication.clipboard().setText(status.text()))
+        status_row.addWidget(status)
+        status_row.addWidget(btn_copy_status)
+        layout.addLayout(status_row)
 
         # 地区状态展示（细粒度：国家/城市/允许/连通/原因），并提供刷新按钮
         region_label = QLabel("地区状态：查询中…")
+        region_label.setWordWrap(True)
+        region_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         btn_region_refresh = QPushButton("刷新地区状态")
+        btn_copy_region = QPushButton("复制地区状态")
+        btn_copy_region.clicked.connect(lambda: QApplication.clipboard().setText(region_label.text()))
 
         def refresh_region():
             try:
-                resp = requests.get(
-                    "http://127.0.0.1:8000/policy/region/status", timeout=5
+                resp = _api_get(
+                    "/policy/region/status", timeout=5
                 )
                 if resp.ok:
                     j = resp.json()
@@ -127,8 +172,12 @@ class MainWindow(QMainWindow):
                 region_label.setText(f"地区状态异常：{e}")
 
         btn_region_refresh.clicked.connect(refresh_region)
-        layout.addWidget(region_label)
-        layout.addWidget(btn_region_refresh)
+        # 地区状态与操作按钮排成一行
+        region_row = QHBoxLayout()
+        region_row.addWidget(region_label)
+        region_row.addWidget(btn_region_refresh)
+        region_row.addWidget(btn_copy_region)
+        layout.addLayout(region_row)
         # 初始化拉取一次状态
         refresh_region()
 
@@ -164,6 +213,11 @@ class MainWindow(QMainWindow):
         layout.addLayout(api_key_row)
 
         file_label = QLabel("未选择图片")
+        file_label.setWordWrap(True)
+        file_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         layout.addWidget(file_label)
 
         btn_choose = QPushButton("选择图片")
@@ -284,8 +338,8 @@ class MainWindow(QMainWindow):
                         data["size"] = s
                     if api_key:
                         data["api_key"] = api_key
-                    resp = requests.post(
-                        "http://127.0.0.1:8000/ai-image/edit",
+                    resp = _api_post(
+                        "/ai-image/edit",
                         files=files_arg,
                         data=data,
                         timeout=30,

@@ -13,10 +13,17 @@
 - 依赖：`openai` Python 库（按需，可选，运行时懒加载）。在 CI 或未安装 `openai` 的环境下，模块可正常导入与运行非硬件测试；若在调用 `/ai-image/edit` 时提供了 `api_key` 但缺失库，后端会返回错误码 `OPENAI_LIB_MISSING`。
 - 环境变量/`.env`：
   - `OPENAI_API_KEY=sk-xxxxx`
+  - `OPENAI_ORG_ID=org_xxxxx`（可选，用于显式指定组织 ID；当帐户属于多个组织或需要组织级权限时建议设置）
 - 默认设置（可通过 `AIImageSettings` 调整）：
   - `output_dir`: `data/ai_images`
   - `model`: `gpt-image-1`
   - `default_size`: `1024x1024`
+ - 尺寸说明：当前已对 `size` 参数进行规范化，仅支持 `256x256`、`512x512`、`1024x1024`。当传入其它尺寸（如 `1280x720`）时将自动回退到默认值 `1024x1024`，以避免 OpenAI API 返回不支持尺寸的错误。
+
+### 组织验证要求
+- 使用 `gpt-image-1` 模型需要组织已通过验证（Verified Organization）。若未验证，OpenAI 会返回 403 错误，提示前往 `https://platform.openai.com/settings/organization/general` 完成验证；验证后通常需要等待约 15 分钟权限才会生效。
+- 路由在捕获该情况时会返回错误码：`ORG_NOT_VERIFIED`，并附带说明与链接以便快速处理。
+- 可选 `api_org_id`（multipart 表单字段）在调用 `/ai-image/edit` 时传入组织 ID；后端会临时在当前进程中使用该组织 ID（等价于设置 `OPENAI_ORG_ID`）。
 
 ## 使用示例（PowerShell）
 ```powershell
@@ -34,6 +41,7 @@ Invoke-WebRequest -Uri "http://127.0.0.1:8000/ai-image/edit" -Method POST -Form 
    -F "prompt=make it look like watercolor" \
    -F "size=1024x1024" \
    -F "api_key=sk-xxxxx" \
+   -F "api_org_id=org_xxxxx" \
    -F "images=@C:/path/to/img1.png" \
    -F "images=@C:/path/to/img2.png" \
    -F "images=@C:/path/to/img3.png" \
@@ -47,6 +55,8 @@ Invoke-WebRequest -Uri "http://127.0.0.1:8000/ai-image/edit" -Method POST -Form 
 - `services/storage_service.py`：上传与输出文件存储帮助类。
 
 ## 更新记录
+- 2025-11-20：增强错误处理，未验证组织时返回 `ORG_NOT_VERIFIED` 并提供验证指引；支持 `OPENAI_ORG_ID` 环境变量与 `api_org_id` 表单字段以显式指定组织。
+- 2025-11-20：修复调用方法为 `images.edit`（替换错误的 `images.edits`），并对 `size` 参数进行规范化（非支持尺寸自动回退到默认值）以提升稳定性。
 - 2025-11-19：风格维护（imports 排序与格式统一），修复 CI isort/black 提示；不改动业务逻辑。
 - 2025-11-19：新增 AI 图像生成模块与路由，支持图片编辑与输出保存。
 - 2025-11-19：`/ai-image/edit` 支持可选 `api_key` 字段以便在未预置环境变量时即时调用。

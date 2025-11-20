@@ -32,7 +32,11 @@ class OpenAIImageService:
                 # Surface a controlled error so routes can return a friendly message
                 raise RuntimeError("OPENAI_LIB_MISSING") from e
             # OpenAI client automatically reads OPENAI_API_KEY from env
-            self._client = OpenAI()
+            org_id = os.environ.get("OPENAI_ORG_ID")
+            if org_id:
+                self._client = OpenAI(organization=org_id)
+            else:
+                self._client = OpenAI()
 
     def has_api_key(self) -> bool:
         return bool(os.getenv("OPENAI_API_KEY"))
@@ -42,7 +46,7 @@ class OpenAIImageService:
     ) -> Path:
         """Edit image using prompt; returns saved output image path.
 
-        This uses the Images API 'edits' endpoint (if available) on model 'gpt-image-1'.
+        This uses the Images API 'edit' endpoint on model 'gpt-image-1'.
         """
         self._ensure_client()
         if not self._client:
@@ -50,7 +54,10 @@ class OpenAIImageService:
         if not image_path.exists():
             raise FileNotFoundError(f"Input image not found: {image_path}")
 
-        use_size = size or self._settings.default_size
+        # Normalize size to commonly supported values to avoid API errors
+        supported_sizes = {"256x256", "512x512", "1024x1024"}
+        requested = (size or self._settings.default_size).lower()
+        use_size = requested if requested in supported_sizes else self._settings.default_size
         logger.info(
             "Submitting image edit to OpenAI: model=%s size=%s",
             self._settings.model,
@@ -60,13 +67,21 @@ class OpenAIImageService:
         # Call the OpenAI Images API; result contains b64_json
         with image_path.open("rb") as img_file:
             try:
-                result = self._client.images.edits(
+                # New OpenAI Python SDK uses `.images.edit(...)` for image edits
+                result = self._client.images.edit(
                     model=self._settings.model,
                     prompt=prompt,
                     image=img_file,
                     size=use_size,
                 )
             except Exception as e:
+                # Map common 403 error for unverified organization to a friendly internal code
+                msg = str(e).lower()
+                if (
+                    "error code: 403" in msg and "must be verified" in msg and "gpt-image-1" in msg
+                ) or ("verify organization" in msg and "gpt-image-1" in msg):
+                    logger.error("OpenAI org not verified for gpt-image-1")
+                    raise RuntimeError("OPENAI_ORG_NOT_VERIFIED")
                 logger.exception("OpenAI image edit failed: %s", e)
                 raise
 

@@ -20,6 +20,7 @@ async def edit_image(
     images: Optional[List[UploadFile]] = File(None),
     image: Optional[UploadFile] = File(None),
     api_key: Optional[str] = Form(None),
+    api_org_id: Optional[str] = Form(None),
     registry: ModuleRegistry = Depends(get_registry),
     policy=Depends(get_region_policy),
 ):
@@ -40,6 +41,8 @@ async def edit_image(
     # Allow providing API key via request to set env at runtime (optional)
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
+    if api_org_id:
+        os.environ["OPENAI_ORG_ID"] = api_org_id
     # Validate API key presence (avoid external call when missing)
     if not os.getenv("OPENAI_API_KEY"):
         return AIImageEditResponse(
@@ -102,6 +105,17 @@ async def edit_image(
             size=size,
         )
     except Exception as e:
+        msg = str(e)
+        if "OPENAI_ORG_NOT_VERIFIED" in msg:
+            return AIImageEditResponse(
+                accepted=False,
+                error_code="ORG_NOT_VERIFIED",
+                error=(
+                    "Organization not verified for gpt-image-1."
+                    " Please verify at https://platform.openai.com/settings/organization/general"
+                    " and wait up to ~15 minutes for access to propagate."
+                ),
+            )
         return AIImageEditResponse(
             accepted=False, error_code="GENERATION_FAILED", error=str(e)
         )
