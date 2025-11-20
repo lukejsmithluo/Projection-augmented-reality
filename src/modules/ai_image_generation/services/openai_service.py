@@ -42,7 +42,11 @@ class OpenAIImageService:
         return bool(os.getenv("OPENAI_API_KEY"))
 
     def edit_image(
-        self, prompt: str, image_path: Path, size: Optional[str] = None
+        self,
+        prompt: str,
+        image_path: Path,
+        size: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> Path:
         """Edit image using prompt; returns saved output image path.
 
@@ -58,9 +62,10 @@ class OpenAIImageService:
         supported_sizes = {"256x256", "512x512", "1024x1024"}
         requested = (size or self._settings.default_size).lower()
         use_size = requested if requested in supported_sizes else self._settings.default_size
+        chosen_model = (model or self._settings.model).strip() or self._settings.model
         logger.info(
             "Submitting image edit to OpenAI: model=%s size=%s",
-            self._settings.model,
+            chosen_model,
             use_size,
         )
 
@@ -69,7 +74,7 @@ class OpenAIImageService:
             try:
                 # New OpenAI Python SDK uses `.images.edit(...)` for image edits
                 result = self._client.images.edit(
-                    model=self._settings.model,
+                    model=chosen_model,
                     prompt=prompt,
                     image=img_file,
                     size=use_size,

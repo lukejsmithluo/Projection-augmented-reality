@@ -53,9 +53,16 @@ class AIImageGenerationModule(ModuleBase):
 
     # Convenience for routes
     def edit_image(
-        self, prompt: str, upload_name: str, content: bytes, size: Optional[str] = None
+        self,
+        prompt: str,
+        upload_name: str,
+        content: bytes,
+        size: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> str:
         up_path = self._storage.save_upload(upload_name, content)
-        out_path = self._svc.edit_image(prompt=prompt, image_path=up_path, size=size)
+        out_path = self._svc.edit_image(
+            prompt=prompt, image_path=up_path, size=size, model=model
+        )
         self._last_output = str(out_path)
         return str(out_path)

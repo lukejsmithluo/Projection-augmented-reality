@@ -9,6 +9,7 @@ from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QApplication,
     QBoxLayout,
+    QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -191,6 +192,14 @@ class MainWindow(QMainWindow):
         size_input.setPlaceholderText("尺寸（可选，默认1024x1024，例如：512x512）")
         layout.addWidget(size_input)
 
+        # 模型选择（下拉，限定为图像生成模型）
+        model_select = QComboBox()
+        model_select.addItems([
+            "gpt-image-1",
+        ])
+        model_select.setCurrentIndex(0)
+        layout.addWidget(model_select)
+
         # OpenAI API Key 输入（默认隐藏），右侧按钮可切换显示
         api_key_row = QHBoxLayout()
         api_key_input = QLineEdit()
@@ -211,6 +220,14 @@ class MainWindow(QMainWindow):
         api_key_row.addWidget(api_key_input)
         api_key_row.addWidget(btn_toggle_key)
         layout.addLayout(api_key_row)
+
+        # 组织 ID 输入（可选，用于指定组织）
+        org_row = QHBoxLayout()
+        org_id_input = QLineEdit()
+        org_id_input.setPlaceholderText("OpenAI Org ID（可选）")
+        org_row.addWidget(QLabel("OpenAI Org ID:"))
+        org_row.addWidget(org_id_input)
+        layout.addLayout(org_row)
 
         file_label = QLabel("未选择图片")
         file_label.setWordWrap(True)
@@ -310,7 +327,9 @@ class MainWindow(QMainWindow):
         def do_generate():
             p = prompt_input.text().strip()
             s = size_input.text().strip()
+            m = model_select.currentText().strip()
             api_key = api_key_input.text().strip()
+            org_id = org_id_input.text().strip()
             fp = file_paths[-1] if file_paths else None
             if not p:
                 status.setText("提示：请先填写提示词")
@@ -336,8 +355,12 @@ class MainWindow(QMainWindow):
                     data = {"prompt": p}
                     if s:
                         data["size"] = s
+                    if m:
+                        data["model"] = m
                     if api_key:
                         data["api_key"] = api_key
+                    if org_id:
+                        data["api_org_id"] = org_id
                     resp = _api_post(
                         "/ai-image/edit",
                         files=files_arg,

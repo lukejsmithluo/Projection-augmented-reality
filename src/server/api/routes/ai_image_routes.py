@@ -17,6 +17,7 @@ router = APIRouter(tags=["ai-image"])
 async def edit_image(
     prompt: str = Form(...),
     size: Optional[str] = Form(None),
+    model: Optional[str] = Form(None),
     images: Optional[List[UploadFile]] = File(None),
     image: Optional[UploadFile] = File(None),
     api_key: Optional[str] = Form(None),
@@ -103,6 +104,7 @@ async def edit_image(
             upload_name=target.filename or "upload.png",
             content=data,
             size=size,
+            model=model,
         )
     except Exception as e:
         msg = str(e)
