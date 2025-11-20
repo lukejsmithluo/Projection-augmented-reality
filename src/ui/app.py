@@ -102,6 +102,36 @@ class MainWindow(QMainWindow):
         status = QLabel("AI图像生成：上传图片+提示词")
         layout.addWidget(status)
 
+        # 地区状态展示（细粒度：国家/城市/允许/连通/原因），并提供刷新按钮
+        region_label = QLabel("地区状态：查询中…")
+        btn_region_refresh = QPushButton("刷新地区状态")
+
+        def refresh_region():
+            try:
+                resp = requests.get(
+                    "http://127.0.0.1:8000/policy/region/status", timeout=5
+                )
+                if resp.ok:
+                    j = resp.json()
+                    cc = j.get("country_code") or "UNKNOWN"
+                    city = j.get("city") or ""
+                    allowed = j.get("allowed")
+                    conn = j.get("connectivity_ok")
+                    reason = j.get("reason") or ""
+                    region_label.setText(
+                        f"地区：{cc} {city}｜允许={allowed}｜连通={conn}｜原因={reason}"
+                    )
+                else:
+                    region_label.setText(f"地区状态请求失败：HTTP {resp.status_code}")
+            except Exception as e:
+                region_label.setText(f"地区状态异常：{e}")
+
+        btn_region_refresh.clicked.connect(refresh_region)
+        layout.addWidget(region_label)
+        layout.addWidget(btn_region_refresh)
+        # 初始化拉取一次状态
+        refresh_region()
+
         prompt_input = QLineEdit()
         prompt_input.setPlaceholderText(
             "请输入提示词（如：make it look like watercolor）"

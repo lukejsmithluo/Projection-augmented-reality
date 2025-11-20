@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from ....common.registry import ModuleRegistry
 from ....modules.ai_image_generation.module import AIImageGenerationModule
-from ..deps import get_registry
+from ..deps import get_region_policy, get_registry
 from ..schemas.ai_image import AIImageEditResponse
 
 router = APIRouter(tags=["ai-image"])
@@ -21,6 +21,7 @@ async def edit_image(
     image: Optional[UploadFile] = File(None),
     api_key: Optional[str] = Form(None),
     registry: ModuleRegistry = Depends(get_registry),
+    policy=Depends(get_region_policy),
 ):
     """Edit the uploaded image using OpenAI with the given prompt.
 
@@ -66,6 +67,26 @@ async def edit_image(
                 error_code="BAD_CONTENT_TYPE",
                 error=f"Unsupported content type: {img.content_type}",
             )
+
+    # Region policy check (hybrid): only allow official supported countries/territories
+    try:
+        region = policy.evaluate()
+        if not region.allowed:
+            return AIImageEditResponse(
+                accepted=False,
+                error_code="REGION_BLOCKED",
+                error=(
+                    f"Region not allowed: country={region.country_code or 'UNKNOWN'} "
+                    f"subdivision={region.subdivision or '-'} reason={region.reason or ''}"
+                ),
+            )
+    except Exception as e:
+        # Any failure in region check results in conservative block
+        return AIImageEditResponse(
+            accepted=False,
+            error_code="REGION_CHECK_FAILED",
+            error=str(e),
+        )
 
     # Process; if multiple provided, use the latest one as effective input
     # (OpenAI Images API currently accepts single image per edit call)

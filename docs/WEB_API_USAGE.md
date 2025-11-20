@@ -93,6 +93,30 @@ python -m pip install "uvicorn[standard]"
 操作建议：
 - 标定时保持投影画面与相机视野稳定，避免强反光或过曝；按提示完成拍摄。
 
+### 策略（Policy：地区与连通性）
+1) 查看地区状态：
+   - 选择 `GET /policy/region/status` → “Execute”，返回示例：
+   ```json
+   {
+     "allowed": true,
+     "policy_mode": "hybrid",
+     "country": "Singapore",
+     "country_code": "SG",
+     "subdivision": null,
+     "city": "Singapore",
+     "exit_ip": "203.0.113.10",
+     "connectivity_ok": true,
+     "reason": null,
+     "checked_at": 1732100000
+   }
+   ```
+   - `allowed=false` 时为不允许地区，AI 相关接口将返回 `REGION_BLOCKED`。
+
+说明：
+- 地区策略默认严格对齐 OpenAI 官网“支持国家与地区”名单（运行时动态获取并缓存 24h）。
+- 可在 `.env` 使用 `OPENAI_ALLOWED_COUNTRIES`（白名单）与 `OPENAI_BLOCKED_SUBDIVISIONS`（黑名单，如 `UA-43`）进行覆盖或补充，支持逗号分隔或 JSON/list 格式。
+- 评估基于出口 IP 的地理定位（VPN 以出口 IP 为准）；连通性诊断仅用于提示，不参与放行决策。
+
 ## 常见问题与排查
 - 打不开 `/docs`：请确认 `main.py` 启动成功，终端无报错，并检查端口占用。
 - `ModuleNotFoundError`：服务启动时自动设置了 `PYTHONPATH`；若仍报错，请确认使用的是项目根目录运行 `python main.py`。
@@ -129,3 +153,4 @@ python -m pip install "uvicorn[standard]"
 使用须知：
 - 推荐在项目根目录 `.env` 中配置 `OPENAI_API_KEY=sk-xxxxx`，避免在浏览器输入 Key 暴露于历史记录。
 - UI 中的“AI图像生成”标签支持多图选择与缩略图预览；最新选择的图片显示在最左，最早选择的在最右（超出 3 张可横向滚动）。
+ - 地区策略：仅当 `/policy/region/status` 返回 `{"allowed": true}` 时，`POST /ai-image/edit` 才会成功；否则返回 `REGION_BLOCKED` 错误（VPN 以出口 IP 为准）。

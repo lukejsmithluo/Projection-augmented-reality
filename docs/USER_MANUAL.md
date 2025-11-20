@@ -33,6 +33,11 @@
 - 标定（Calibration）：
   - `POST /calibration/run` 请求体：`{"proj_height": 1080, "proj_width": 1920, "rounds": 1}` → 返回 `{ "accepted": true }`。
   - `GET /calibration/result` → 当前返回占位信息（后续解析输出文件）。
+ - AI 图像生成（AI Image Generation）：
+   - `POST /ai-image/edit`（multipart）需提供 `prompt` 与 `image`（或 `images`）；默认尺寸 `1024x1024`，可通过 `size` 指定；支持可选 `api_key` 用于临时覆盖进程环境变量。
+   - `GET /ai-image/status` → 返回模块状态与最近输出文件路径。
+ - 策略（Policy）：
+   - `GET /policy/region/status` → 返回地区策略评估结果（国家/地区代码、城市、是否允许、出口 IP 与连通性诊断、原因、时间戳）。仅当 `allowed=true` 时，AI 相关接口允许请求；否则返回 `REGION_BLOCKED`。
 
 PowerShell 调用示例（Windows）：
 ```powershell
@@ -44,12 +49,14 @@ python -m uvicorn src.server.main:app --reload
 
 ## UI 使用
 - 主窗口包含“空间映射”与“投影标定”标签页；操作按钮通过 HTTP 调用后端 API 执行任务；本地模式可走事件总线提升性能。
+ - 新增“地区状态”信息展示与刷新按钮：通过 `GET /policy/region/status` 显示国家/地区代码、城市、是否允许、连通性诊断与原因；仅当地区允许时才可成功调用 OpenAI 相关能力（VPN 以出口 IP 定位为准）。
 
 ## 常见问题（FAQ）
 - 未生成纹理：请确保启用 `--save_texture` 参数，并在构建网格时启用 `--build_mesh`。
 - 叠加显示不一致：已修复为绘制所有块；若块数较多可适当降低更新频率或分辨率以提升性能。
 - Pydantic v2 兼容：已使用 `pydantic-settings` 管理 `BaseSettings`；旧版导入将报错。
 - 硬件调试：禁止使用 mock，需在真实设备上验证。
+ - 地区策略与白名单：默认严格对齐 OpenAI 官网“支持国家与地区”名单（运行时动态获取并缓存 24h）。可通过 `.env` 设置 `OPENAI_ALLOWED_COUNTRIES`（白名单）与 `OPENAI_BLOCKED_SUBDIVISIONS`（黑名单，如 `UA-43`）进行覆盖或补充，支持逗号分隔或 JSON/list 格式。评估基于出口 IP 的地理定位（VPN 以出口 IP 为准）。
 
 ## 开发规范
 - 提交前：`pre-commit` 会运行 `ruff/black/isort` 与 `pytest -m "not hardware"`（失败阻止提交）。

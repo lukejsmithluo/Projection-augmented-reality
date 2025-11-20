@@ -26,6 +26,9 @@
  - AI 图像生成（AI Image Generation）：
    - `POST /ai-image/edit`（multipart）上传图片并提供 `prompt`，可选 `size`（默认 `1024x1024`），可选 `api_key`（若提供将覆盖当前进程环境变量）。支持多图上传字段 `images`（保留左→右的选择顺序），当前后端将以“最新一张”作为实际生成输入。成功返回生成的图片文件路径：`{"accepted": true, "output_file": "data/ai_images/outputs/gen_YYYYmmdd_HHMMSS.png"}`。若未配置 `OPENAI_API_KEY`，返回错误：`{"accepted": false, "error_code": "NO_API_KEY", "error": "OPENAI_API_KEY not configured"}`。
    - `GET /ai-image/status` → 返回模块状态与最近输出文件路径。
+- 策略（Policy）：
+  - `GET /policy/region/status` → 返回地区策略评估结果（国家/地区代码、城市、是否允许、连通性诊断、原因）。
+  - AI 图像生成接口在通过基本入参校验后，会进行地区策略校验：默认严格对齐 OpenAI 官网“支持国家与地区”名单（运行时动态获取并缓存 24h），其他全部阻止；失败返回：`{"accepted": false, "error_code": "REGION_BLOCKED", "error": "Region not allowed: country=XX ..."}`。若需要覆盖或补充，可通过 `.env` 设置 `OPENAI_ALLOWED_COUNTRIES`（逗号分隔 ISO 代码）与 `OPENAI_BLOCKED_SUBDIVISIONS`。
 
 在 Windows PowerShell 中调用示例：
 ```powershell
@@ -62,9 +65,11 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/calibration/run" -Method POST -Con
 - 路由通过依赖注入（`Depends(get_registry)`) 获取注册中心并调用模块的 `configure()/start()/stop()/status()`。
 
 更新记录：
-- 2025-11-19：风格维护（imports 排序与格式统一），修复 CI isort/black 提示；不涉及业务改动。
+ - 2025-11-20：新增政策路由 `/policy/region/status` 并在 AI 路由接入地区策略校验（hybrid）；默认严格白名单（官方列表动态获取），VPN 以出口 IP 定位为准。
+ - 2025-11-20：格式化与导入顺序统一（black/isort），不涉及业务逻辑；确保本地与 CI 风格检查一致通过。
+ - 2025-11-19：风格维护（imports 排序与格式统一），修复 CI isort/black 提示；不涉及业务改动。
  - 2025-11-19：补充表单上传依赖说明（`python-multipart`）。
-- 2025-11-10：风格维护（imports 排序与格式统一），修复 CI 提示的 isort/black 问题；不涉及业务改动。
-- 2025-11-05：启用风格检查（ruff/black/isort）；本目录 Python 文件已按规则格式化，未改变业务逻辑。
-- 2025-11-05：映射/标定路由接入模块包装类；新增示例请求体与 PowerShell 调用示例。
+ - 2025-11-10：风格维护（imports 排序与格式统一），修复 CI 提示的 isort/black 问题；不涉及业务改动。
+ - 2025-11-05：启用风格检查（ruff/black/isort）；本目录 Python 文件已按规则格式化，未改变业务逻辑。
+ - 2025-11-05：映射/标定路由接入模块包装类；新增示例请求体与 PowerShell 调用示例。
  - 2025-11-05：新增根路径 `/` 跳转至 `/docs`，解决首页访问无法看到接口文档的问题。

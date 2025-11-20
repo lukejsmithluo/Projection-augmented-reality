@@ -3,13 +3,19 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
-from ..common.config import AppSettings
+from ..common.config import AppSettings, OpenAIRegionPolicySettings
 from ..common.logging import setup_logging
+from ..common.policy.region_policy import RegionPolicyService
 from ..common.registry import ModuleRegistry
 from ..modules.ai_image_generation.module import AIImageGenerationModule
 from ..modules.pre_scanned_point_cloud.module import SpatialMappingModule
 from ..modules.projector_calibration.module import ProjectorCalibrationModule
-from .api.routes import ai_image_routes, calibration_routes, mapping_routes
+from .api.routes import (
+    ai_image_routes,
+    calibration_routes,
+    mapping_routes,
+    policy_routes,
+)
 
 settings = AppSettings()
 setup_logging()
@@ -23,6 +29,7 @@ def create_app() -> FastAPI:
     app.include_router(mapping_routes.router, prefix="/mapping")
     app.include_router(calibration_routes.router, prefix="/calibration")
     app.include_router(ai_image_routes.router, prefix="/ai-image")
+    app.include_router(policy_routes.router, prefix="/policy")
 
     @app.get("/health")
     def health():
@@ -39,6 +46,9 @@ def create_app() -> FastAPI:
     registry.register("projector_calibration", ProjectorCalibrationModule())
     registry.register("ai_image_generation", AIImageGenerationModule())
     app.state.registry = registry
+    # 地区策略服务（hybrid）
+    policy_settings = OpenAIRegionPolicySettings()
+    app.state.region_policy = RegionPolicyService(policy_settings)
     return app
 
 
