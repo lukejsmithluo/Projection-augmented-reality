@@ -8,8 +8,8 @@ from pydantic_settings import BaseSettings
 from ...common.module_base import ModuleBase
 from ...common.types import ModuleState
 from .config import AIImageSettings
-from .services.openai_service import OpenAIImageService
 from .services.gemini_service import GeminiImageService
+from .services.openai_service import OpenAIImageService
 from .services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
@@ -74,9 +74,18 @@ class AIImageGenerationModule(ModuleBase):
     ) -> str:
         up_path = self._storage.save_upload(upload_name, content)
         prov = (provider or "openai").strip().lower()
-        if prov == "gemini" or (model or "").lower().startswith("gemini") or (model or "").lower().startswith("imagen"):
+        if (
+            prov == "gemini"
+            or (model or "").lower().startswith("gemini")
+            or (model or "").lower().startswith("imagen")
+        ):
             out_path = self._svc_gemini.edit_image(
-                prompt=prompt, image_path=up_path, size=size, model=model, aspect_ratio=aspect_ratio, image_size=image_resolution
+                prompt=prompt,
+                image_path=up_path,
+                size=size,
+                model=model,
+                aspect_ratio=aspect_ratio,
+                image_size=image_resolution,
             )
         else:
             out_path = self._svc_openai.edit_image(

@@ -61,7 +61,9 @@ class OpenAIImageService:
         # Normalize size to commonly supported values to avoid API errors
         supported_sizes = {"256x256", "512x512", "1024x1024"}
         requested = (size or self._settings.default_size).lower()
-        use_size = requested if requested in supported_sizes else self._settings.default_size
+        use_size = (
+            requested if requested in supported_sizes else self._settings.default_size
+        )
         chosen_model = (model or self._settings.model).strip() or self._settings.model
         logger.info(
             "Submitting image edit to OpenAI: model=%s size=%s",
@@ -83,7 +85,9 @@ class OpenAIImageService:
                 # Map common 403 error for unverified organization to a friendly internal code
                 msg = str(e).lower()
                 if (
-                    "error code: 403" in msg and "must be verified" in msg and "gpt-image-1" in msg
+                    "error code: 403" in msg
+                    and "must be verified" in msg
+                    and "gpt-image-1" in msg
                 ) or ("verify organization" in msg and "gpt-image-1" in msg):
                     logger.error("OpenAI org not verified for gpt-image-1")
                     raise RuntimeError("OPENAI_ORG_NOT_VERIFIED")

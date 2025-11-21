@@ -25,12 +25,14 @@ from PyQt6.QtWidgets import (
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
 
+
 def _api_get(path: str, **kwargs):
     return requests.get(
         API_BASE_URL + path,
         proxies={"http": None, "https": None},
         **kwargs,
     )
+
 
 def _api_post(path: str, **kwargs):
     return requests.post(
@@ -63,8 +65,15 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         # 动态调整 AI 标签页的两个 16:9 窗口尺寸（水平自适应、居中）
         try:
-            if self._ai_tab and self._ai_preview_frame and self._ai_preview_label and self._ai_thumbs_frame:
-                avail_width = max(320, self._ai_tab.width() - 48)  # 左右各留 24px 安全区
+            if (
+                self._ai_tab
+                and self._ai_preview_frame
+                and self._ai_preview_label
+                and self._ai_thumbs_frame
+            ):
+                avail_width = max(
+                    320, self._ai_tab.width() - 48
+                )  # 左右各留 24px 安全区
                 # 统一 16:9 尺寸
                 target_w = avail_width
                 target_h = int(target_w * 9 / 16)
@@ -161,7 +170,9 @@ class MainWindow(QMainWindow):
         # 添加复制按钮，便于快速复制错误/状态文本
         status_row = QHBoxLayout()
         btn_copy_status = QPushButton("复制状态")
-        btn_copy_status.clicked.connect(lambda: QApplication.clipboard().setText(status.text()))
+        btn_copy_status.clicked.connect(
+            lambda: QApplication.clipboard().setText(status.text())
+        )
         status_row.addWidget(status)
         status_row.addWidget(btn_copy_status)
         layout.addLayout(status_row)
@@ -175,13 +186,13 @@ class MainWindow(QMainWindow):
         )
         btn_region_refresh = QPushButton("刷新地区状态")
         btn_copy_region = QPushButton("复制地区状态")
-        btn_copy_region.clicked.connect(lambda: QApplication.clipboard().setText(region_label.text()))
+        btn_copy_region.clicked.connect(
+            lambda: QApplication.clipboard().setText(region_label.text())
+        )
 
         def refresh_region():
             try:
-                resp = _api_get(
-                    "/policy/region/status", timeout=5
-                )
+                resp = _api_get("/policy/region/status", timeout=5)
                 if resp.ok:
                     j = resp.json()
                     cc = j.get("country_code") or "UNKNOWN"
@@ -222,10 +233,12 @@ class MainWindow(QMainWindow):
         gem_row = QHBoxLayout()
         ar_label = QLabel("Aspect Ratio:")
         ar_select = QComboBox()
-        ar_select.addItems(["1:1","2:3","3:2","3:4","4:3","4:5","5:4","9:16","16:9","21:9"])
+        ar_select.addItems(
+            ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]
+        )
         res_label = QLabel("Resolution:")
         res_select = QComboBox()
-        res_select.addItems(["1K","2K","4K"])  # Gemini 3 Pro Image 支持 1K/2K/4K
+        res_select.addItems(["1K", "2K", "4K"])  # Gemini 3 Pro Image 支持 1K/2K/4K
         gem_row.addWidget(ar_label)
         gem_row.addWidget(ar_select)
         gem_row.addWidget(res_label)
@@ -235,11 +248,13 @@ class MainWindow(QMainWindow):
 
         # 模型选择（下拉，限定为图像生成模型；默认使用 Gemini 图像模型）
         model_select = QComboBox()
-        model_select.addItems([
-            "gemini-2.5-flash-image",
-            "gemini-3-pro-image-preview",
-            "gpt-image-1",
-        ])
+        model_select.addItems(
+            [
+                "gemini-2.5-flash-image",
+                "gemini-3-pro-image-preview",
+                "gpt-image-1",
+            ]
+        )
         model_select.setCurrentIndex(0)
         layout.addWidget(model_select)
 
@@ -253,7 +268,9 @@ class MainWindow(QMainWindow):
             res_label.setVisible(is_gem)
             res_select.setVisible(is_gem)
             if is_gem:
-                status.setText("提示：Gemini 请选择宽高比（必选）与分辨率（1K/2K/4K，可选）")
+                status.setText(
+                    "提示：Gemini 请选择宽高比（必选）与分辨率（1K/2K/4K，可选）"
+                )
             else:
                 status.setText("提示：OpenAI 尺寸仅支持 256x256 / 512x512 / 1024x1024")
 
@@ -310,7 +327,7 @@ class MainWindow(QMainWindow):
         thumbs_frame = QFrame()
         thumbs_frame.setFrameShape(QFrame.Shape.StyledPanel)
         # 初始尺寸将由窗口 resize 时动态调整为 16:9
-        
+
         uploads_area = QScrollArea(thumbs_frame)
         uploads_area.setWidgetResizable(True)
         uploads_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -422,7 +439,9 @@ class MainWindow(QMainWindow):
                 except Exception:
                     pass
                 if file_paths:
-                    file_label.setText(f"已选择 {len(file_paths)} 张，最新：{file_paths[-1]}")
+                    file_label.setText(
+                        f"已选择 {len(file_paths)} 张，最新：{file_paths[-1]}"
+                    )
                 else:
                     file_label.setText("未选择图片")
                 _ensure_add_item_rightmost()
@@ -447,7 +466,9 @@ class MainWindow(QMainWindow):
                 if len(merged) > limit:
                     dropped = len(merged) - limit
                     merged = merged[-limit:]
-                    status.setText(f"提示：当前模型最多允许 {limit} 张，较早的 {dropped} 张已忽略。")
+                    status.setText(
+                        f"提示：当前模型最多允许 {limit} 张，较早的 {dropped} 张已忽略。"
+                    )
                 # 重建缩略图视图以与限制后的列表保持一致
                 # 先清理现有缩略图（保留加号控件）
                 while uploads_layout.count():
@@ -461,7 +482,9 @@ class MainWindow(QMainWindow):
                 file_paths.clear()
                 file_paths.extend(merged)
                 if file_paths:
-                    file_label.setText(f"已选择 {len(file_paths)} 张，最新：{file_paths[-1]}")
+                    file_label.setText(
+                        f"已选择 {len(file_paths)} 张，最新：{file_paths[-1]}"
+                    )
                 else:
                     file_label.setText("未选择图片")
                 for p in merged:
@@ -531,21 +554,34 @@ class MainWindow(QMainWindow):
             # 选择数量上限校验（防止误操作超限发起请求）
             limit_chk = _max_images_for_model(m)
             if len(file_paths) > limit_chk:
-                status.setText(f"输入错误：当前模型最多允许 {limit_chk} 张图片，请移除多余图片。")
+                status.setText(
+                    f"输入错误：当前模型最多允许 {limit_chk} 张图片，请移除多余图片。"
+                )
                 return
             if is_gem:
                 # Gemini：必须提供宽高比；分辨率可选（1K/2K/4K）
                 ar = ar_select.currentText().strip()
                 res = res_select.currentText().strip()
-                if ar not in {"1:1","2:3","3:2","3:4","4:3","4:5","5:4","9:16","16:9","21:9"}:
+                if ar not in {
+                    "1:1",
+                    "2:3",
+                    "3:2",
+                    "3:4",
+                    "4:3",
+                    "4:5",
+                    "5:4",
+                    "9:16",
+                    "16:9",
+                    "21:9",
+                }:
                     status.setText("输入错误：Aspect Ratio 仅支持列表中的选项")
                     return
-                if res and res.upper() not in {"1K","2K","4K"}:
+                if res and res.upper() not in {"1K", "2K", "4K"}:
                     status.setText("输入错误：Resolution 仅支持 1K/2K/4K（大写K）")
                     return
             else:
                 # OpenAI：size 可选但如提供必须为支持的尺寸
-                if s and s.lower() not in {"256x256","512x512","1024x1024"}:
+                if s and s.lower() not in {"256x256", "512x512", "1024x1024"}:
                     status.setText("输入错误：尺寸仅支持 256x256 / 512x512 / 1024x1024")
                     return
             try:

@@ -82,5 +82,6 @@ Invoke-WebRequest -Uri "http://127.0.0.1:8000/ai-image/edit" -Method POST -Form 
 - 2025-11-20：增强错误处理，未验证组织时返回 `ORG_NOT_VERIFIED` 并提供验证指引；支持 `OPENAI_ORG_ID` 环境变量与 `api_org_id` 表单字段以显式指定组织。
 - 2025-11-20：修复调用方法为 `images.edit`（替换错误的 `images.edits`），并对 `size` 参数进行规范化（非支持尺寸自动回退到默认值）以提升稳定性。
 - 2025-11-19：风格维护（imports 排序与格式统一），修复 CI isort/black 提示；不改动业务逻辑。
+- 2025-11-21：风格维护（移除未使用导入 `PIL.Image`、统一导入顺序）；运行 `ruff --fix` 与 `ruff format` 后 CI 通过，不改动业务逻辑。
 - 2025-11-19：新增 AI 图像生成模块与路由，支持图片编辑与输出保存。
 - 2025-11-19：`/ai-image/edit` 支持可选 `api_key` 字段以便在未预置环境变量时即时调用。

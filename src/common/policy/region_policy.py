@@ -148,9 +148,18 @@ class RegionPolicyService:
                 lines = [s.strip() for s in re.split(r"\r?\n", html) if s.strip()]
                 for ln in lines:
                     # 过滤导航/版权等非国家文本
-                    if (
-                        len(ln) < 2
-                        or any(tag in ln.lower() for tag in ("<", ">", "gemini", "api", "studio", "vertex", "政策", "可用区域"))
+                    if len(ln) < 2 or any(
+                        tag in ln.lower()
+                        for tag in (
+                            "<",
+                            ">",
+                            "gemini",
+                            "api",
+                            "studio",
+                            "vertex",
+                            "政策",
+                            "可用区域",
+                        )
                     ):
                         continue
                     # 大多数国家名为首字母大写的单词或短语；进行经验性过滤
@@ -194,7 +203,9 @@ class RegionPolicyService:
             self._official_expire_map[prov] = now + 24 * 3600
         return self._official_names_map.get(prov)
 
-    def evaluate(self, provider: str = "openai", force: bool = False) -> RegionCheckResult:
+    def evaluate(
+        self, provider: str = "openai", force: bool = False
+    ) -> RegionCheckResult:
         # 返回缓存
         now = self._now()
         if not force and self._cache and now < self._cache_expire_at:
@@ -214,7 +225,9 @@ class RegionPolicyService:
             if official and country_name:
                 allowed = country_name in official
                 reason = (
-                    None if allowed else f"country {country_name} not in official list for {provider}"
+                    None
+                    if allowed
+                    else f"country {country_name} not in official list for {provider}"
                 )
             else:
                 # 官方获取失败，退化到代码白名单
@@ -222,7 +235,9 @@ class RegionPolicyService:
                     allowed = True
                 else:
                     allowed = False
-                    reason = f"country {cc or 'UNKNOWN'} not in allowed list for {provider}"
+                    reason = (
+                        f"country {cc or 'UNKNOWN'} not in allowed list for {provider}"
+                    )
         elif cc and cc in self.settings.allowed_countries:
             # 次国家地区受限（如 UA-43 等）
             if subdivision and subdivision in self.settings.blocked_subdivisions:

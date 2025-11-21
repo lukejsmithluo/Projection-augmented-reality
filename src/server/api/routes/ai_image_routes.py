@@ -90,7 +90,18 @@ async def edit_image(
     else:
         # Gemini inputs: aspect_ratio and optional image_resolution
         if aspect_ratio:
-            allowed_ratios = {"1:1","2:3","3:2","3:4","4:3","4:5","5:4","9:16","16:9","21:9"}
+            allowed_ratios = {
+                "1:1",
+                "2:3",
+                "3:2",
+                "3:4",
+                "4:3",
+                "4:5",
+                "5:4",
+                "9:16",
+                "16:9",
+                "21:9",
+            }
             if aspect_ratio not in allowed_ratios:
                 return AIImageEditResponse(
                     accepted=False,
@@ -98,7 +109,7 @@ async def edit_image(
                     error="Invalid aspect_ratio. Allowed: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9",
                 )
         if image_resolution:
-            allowed_res = {"1K","2K","4K"}
+            allowed_res = {"1K", "2K", "4K"}
             if image_resolution.upper() not in allowed_res:
                 return AIImageEditResponse(
                     accepted=False,
@@ -180,7 +191,9 @@ async def edit_image(
             for up in img_list[:-1]:
                 data_pre = await up.read()
                 try:
-                    mod.save_upload(upload_name=up.filename or "upload.png", content=data_pre)
+                    mod.save_upload(
+                        upload_name=up.filename or "upload.png", content=data_pre
+                    )
                 except Exception:
                     # 不中断主流程，保存失败不影响生成；错误由统一异常处理覆盖
                     pass
@@ -211,7 +224,9 @@ async def edit_image(
                 ),
             )
         if prov == "gemini" and (
-            "GEMINI_LIB_MISSING" in msg or "GEMINI_NO_IMAGE_DATA" in msg or "PIL_OR_GEMINI_TYPES_MISSING" in msg
+            "GEMINI_LIB_MISSING" in msg
+            or "GEMINI_NO_IMAGE_DATA" in msg
+            or "PIL_OR_GEMINI_TYPES_MISSING" in msg
         ):
             # Return a friendly message for common setup issues
             return AIImageEditResponse(
