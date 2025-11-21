@@ -48,11 +48,33 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("XProjection UI")
         # 默认设置为 16:9 比例（例如 1280x720）
         self.resize(1280, 720)
+        # AI 标签页中的预览与选择窗口（用于自适应调整）
+        self._ai_tab: QWidget | None = None
+        self._ai_preview_frame: QFrame | None = None
+        self._ai_preview_label: QLabel | None = None
+        self._ai_thumbs_frame: QFrame | None = None
         tabs = QTabWidget()
         tabs.addTab(self._mapping_tab(), "空间映射")
         tabs.addTab(self._calibration_tab(), "投影标定")
         tabs.addTab(self._ai_image_tab(), "AI图像生成")
         self.setCentralWidget(tabs)
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        super().resizeEvent(event)
+        # 动态调整 AI 标签页的两个 16:9 窗口尺寸（水平自适应、居中）
+        try:
+            if self._ai_tab and self._ai_preview_frame and self._ai_preview_label and self._ai_thumbs_frame:
+                avail_width = max(320, self._ai_tab.width() - 48)  # 左右各留 24px 安全区
+                # 统一 16:9 尺寸
+                target_w = avail_width
+                target_h = int(target_w * 9 / 16)
+                # 输出预览窗口
+                self._ai_preview_frame.setFixedSize(target_w, target_h)
+                self._ai_preview_label.setFixedSize(target_w, target_h)
+                # 选择预览窗口
+                self._ai_thumbs_frame.setFixedSize(target_w, target_h)
+        except Exception:
+            pass
 
     def _mapping_tab(self) -> QWidget:
         w = QWidget()
@@ -125,7 +147,10 @@ class MainWindow(QMainWindow):
 
     def _ai_image_tab(self) -> QWidget:
         w = QWidget()
+        self._ai_tab = w
         layout = QVBoxLayout()
+        # 整体安全区（左右上下均 24px）
+        layout.setContentsMargins(24, 24, 24, 24)
 
         status = QLabel("AI图像生成：上传图片+提示词")
         status.setWordWrap(True)
@@ -188,22 +213,57 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(prompt_input)
 
+        # OpenAI 尺寸输入（仅 gpt-image-1 使用）
         size_input = QLineEdit()
-        size_input.setPlaceholderText("尺寸（可选，默认1024x1024，例如：512x512）")
+        size_input.setPlaceholderText("尺寸（OpenAI：256x256/512x512/1024x1024）")
         layout.addWidget(size_input)
 
-        # 模型选择（下拉，限定为图像生成模型）
+        # Gemini 输入（宽高比 + 分辨率下拉，仅 Gemini 使用）
+        gem_row = QHBoxLayout()
+        ar_label = QLabel("Aspect Ratio:")
+        ar_select = QComboBox()
+        ar_select.addItems(["1:1","2:3","3:2","3:4","4:3","4:5","5:4","9:16","16:9","21:9"])
+        res_label = QLabel("Resolution:")
+        res_select = QComboBox()
+        res_select.addItems(["1K","2K","4K"])  # Gemini 3 Pro Image 支持 1K/2K/4K
+        gem_row.addWidget(ar_label)
+        gem_row.addWidget(ar_select)
+        gem_row.addWidget(res_label)
+        gem_row.addWidget(res_select)
+        layout.addLayout(gem_row)
+        # 初始默认：显示 Gemini（与默认模型一致），隐藏 OpenAI 尺寸输入由后续联动处理
+
+        # 模型选择（下拉，限定为图像生成模型；默认使用 Gemini 图像模型）
         model_select = QComboBox()
         model_select.addItems([
+            "gemini-2.5-flash-image",
+            "gemini-3-pro-image-preview",
             "gpt-image-1",
         ])
         model_select.setCurrentIndex(0)
         layout.addWidget(model_select)
 
-        # OpenAI API Key 输入（默认隐藏），右侧按钮可切换显示
+        # 根据模型联动显示/隐藏输入控件
+        def update_input_mode():
+            lm = model_select.currentText().strip().lower()
+            is_gem = lm.startswith("gemini") or lm.startswith("imagen")
+            size_input.setVisible(not is_gem)
+            ar_label.setVisible(is_gem)
+            ar_select.setVisible(is_gem)
+            res_label.setVisible(is_gem)
+            res_select.setVisible(is_gem)
+            if is_gem:
+                status.setText("提示：Gemini 请选择宽高比（必选）与分辨率（1K/2K/4K，可选）")
+            else:
+                status.setText("提示：OpenAI 尺寸仅支持 256x256 / 512x512 / 1024x1024")
+
+        model_select.currentTextChanged.connect(lambda _: update_input_mode())
+        update_input_mode()
+
+        # API Key 输入（默认隐藏），右侧按钮可切换显示；根据选择的模型对应提供者
         api_key_row = QHBoxLayout()
         api_key_input = QLineEdit()
-        api_key_input.setPlaceholderText("OpenAI API Key（可选）")
+        api_key_input.setPlaceholderText("API Key（根据模型选择对应的提供者）")
         api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         btn_toggle_key = QPushButton("显示")
 
@@ -216,7 +276,7 @@ class MainWindow(QMainWindow):
                 btn_toggle_key.setText("显示")
 
         btn_toggle_key.clicked.connect(do_toggle_key)
-        api_key_row.addWidget(QLabel("OpenAI API Key:"))
+        api_key_row.addWidget(QLabel("API Key:"))
         api_key_row.addWidget(api_key_input)
         api_key_row.addWidget(btn_toggle_key)
         layout.addLayout(api_key_row)
@@ -224,7 +284,7 @@ class MainWindow(QMainWindow):
         # 组织 ID 输入（可选，用于指定组织）
         org_row = QHBoxLayout()
         org_id_input = QLineEdit()
-        org_id_input.setPlaceholderText("OpenAI Org ID（可选）")
+        org_id_input.setPlaceholderText("OpenAI Org ID（仅 OpenAI 使用，可选）")
         org_row.addWidget(QLabel("OpenAI Org ID:"))
         org_row.addWidget(org_id_input)
         layout.addLayout(org_row)
@@ -237,8 +297,7 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(file_label)
 
-        btn_choose = QPushButton("选择图片")
-        btn_clear = QPushButton("清空已选图片")
+        # 底部按钮将被替换为预览窗口上的内联控件（加号/叉号），因此不再使用传统“选择/清空”按钮
         btn_generate = QPushButton("生成图片")
         btn_open_dir = QPushButton("打开输出目录")
         btn_preview_latest = QPushButton("预览最新输出")
@@ -246,12 +305,12 @@ class MainWindow(QMainWindow):
         # 多图选择：维护已选择图片列表
         file_paths: list[str] = []
 
-        # 选择图片后进行缩略图预览（右到左排布）
-        # 16:9 框（例如 640x360），内部为横向滚动的缩略图区域
+        # 选择图片后进行缩略图预览（横向滚动）
+        # 16:9 框（横向自适应窗口宽度，居中摆放）
         thumbs_frame = QFrame()
         thumbs_frame.setFrameShape(QFrame.Shape.StyledPanel)
-        thumbs_frame.setFixedSize(640, 360)  # 16:9 框
-
+        # 初始尺寸将由窗口 resize 时动态调整为 16:9
+        
         uploads_area = QScrollArea(thumbs_frame)
         uploads_area.setWidgetResizable(True)
         uploads_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -266,16 +325,64 @@ class MainWindow(QMainWindow):
         uploads_area.setWidget(uploads_container)
         frame_layout = QVBoxLayout()
         frame_layout.setContentsMargins(6, 6, 6, 6)
+        # 顶部左侧“叉号”：清空选择
+        clear_row = QHBoxLayout()
+        btn_clear_all = QPushButton("×")
+        btn_clear_all.setFixedSize(24, 24)
+        btn_clear_all.setToolTip("清空已选图片")
+        clear_row.addWidget(btn_clear_all)
+        clear_row.addStretch(1)
+        frame_layout.addLayout(clear_row)
         frame_layout.addWidget(uploads_area)
         thumbs_frame.setLayout(frame_layout)
         layout.addWidget(QLabel("已选择图片预览（左→右，最多3张可见，更多可滑动）："))
-        layout.addWidget(thumbs_frame)
+        layout.addWidget(thumbs_frame, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # 内联“加号”添加图片控件（始终位于最右侧）
+        add_item = QFrame()
+        add_item.setFrameShape(QFrame.Shape.StyledPanel)
+        add_item.setFixedSize(200, 112)
+        add_item_layout = QVBoxLayout()
+        add_item_layout.setContentsMargins(0, 0, 0, 0)
+        add_btn = QPushButton("＋")
+        add_btn.setToolTip("添加图片")
+        add_btn.setFixedSize(48, 48)
+        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_item_layout.addStretch(1)
+        add_item_layout.addWidget(add_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        add_item_layout.addStretch(1)
+        add_item.setLayout(add_item_layout)
+
+        def _ensure_add_item_rightmost():
+            # 保证加号控件始终在最右侧
+            uploads_layout.removeWidget(add_item)
+            add_item.setParent(uploads_container)
+            uploads_layout.addWidget(add_item)
+
+        def _max_images_for_model(model_name: str) -> int:
+            """根据当前模型名称返回允许的最大上传图片数量。
+            - OpenAI gpt-image-1：1 张
+            - Gemini 3 Pro Image Preview：14 张
+            - 其他 Gemini/Imagen：默认 16 张
+            """
+            m = (model_name or "").strip().lower()
+            if m == "gpt-image-1":
+                return 1
+            if m.startswith("gemini-3-pro-image-preview"):
+                return 14
+            if m.startswith("gemini") or m.startswith("imagen"):
+                return 16
+            return 16
 
         def _add_thumbnail(path: str) -> None:
-            lbl = QLabel()
-            # 16:9 缩略图尺寸，保证比例不破坏，同时尽量填充显示
-            lbl.setFixedSize(200, 112)
-            lbl.setScaledContents(True)
+            # 缩略图容器，带右上角减号
+            item = QFrame()
+            item.setFrameShape(QFrame.Shape.StyledPanel)
+            item.setFixedSize(200, 112)
+            # 主图
+            img = QLabel()
+            img.setFixedSize(200, 112)
+            img.setScaledContents(True)
             pix = QPixmap(path)
             if not pix.isNull():
                 pix = pix.scaled(
@@ -284,20 +391,80 @@ class MainWindow(QMainWindow):
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
-                lbl.setPixmap(pix)
+                img.setPixmap(pix)
             else:
-                lbl.setText("无法加载")
-            # 追加到末尾，保证最早在左、最新在右
-            uploads_layout.addWidget(lbl)
+                img.setText("无法加载")
+            # 将减号按钮直接作为子控件叠放到右上角（避免改变高度）
+            v = QVBoxLayout()
+            v.setContentsMargins(0, 0, 0, 0)
+            v.addWidget(img)
+            item.setLayout(v)
+            btn_remove = QPushButton("－", parent=item)
+            btn_remove.setFixedSize(24, 24)
+            btn_remove.setToolTip("移除该图片")
+            btn_remove.setCursor(Qt.CursorShape.PointingHandCursor)
+            # 按钮放在右上角（略微内缩 4px）
+            btn_remove.move(200 - 24 - 4, 4)
+
+            # 记录路径以便删除时更新
+            item.image_path = path  # 动态属性
+
+            def on_remove():
+                # 从布局和列表中移除此项
+                try:
+                    uploads_layout.removeWidget(item)
+                    item.deleteLater()
+                except Exception:
+                    pass
+                try:
+                    if path in file_paths:
+                        file_paths.remove(path)
+                except Exception:
+                    pass
+                if file_paths:
+                    file_label.setText(f"已选择 {len(file_paths)} 张，最新：{file_paths[-1]}")
+                else:
+                    file_label.setText("未选择图片")
+                _ensure_add_item_rightmost()
+
+            btn_remove.clicked.connect(on_remove)
+            # 插入到加号前，使加号位于最右
+            count = uploads_layout.count()
+            if count == 0:
+                uploads_layout.addWidget(item)
+            else:
+                uploads_layout.insertWidget(count - 1, item)
+            _ensure_add_item_rightmost()
 
         def do_choose():
             paths, _ = QFileDialog.getOpenFileNames(
                 w, "选择图片（可多选）", "", "Images (*.png *.jpg *.jpeg)"
             )
             if paths:
-                file_paths.extend(paths)
-                file_label.setText(f"已选择 {len(file_paths)} 张，最新：{paths[-1]}")
-                for p in paths:
+                # 计算按模型限制后的列表（保留最新的若干张）
+                limit = _max_images_for_model(model_select.currentText())
+                merged = file_paths + paths
+                if len(merged) > limit:
+                    dropped = len(merged) - limit
+                    merged = merged[-limit:]
+                    status.setText(f"提示：当前模型最多允许 {limit} 张，较早的 {dropped} 张已忽略。")
+                # 重建缩略图视图以与限制后的列表保持一致
+                # 先清理现有缩略图（保留加号控件）
+                while uploads_layout.count():
+                    item = uploads_layout.takeAt(0)
+                    wdg = item.widget()
+                    if wdg is not None:
+                        wdg.deleteLater()
+                uploads_layout.addWidget(add_item)
+                _ensure_add_item_rightmost()
+                # 更新列表并添加缩略图
+                file_paths.clear()
+                file_paths.extend(merged)
+                if file_paths:
+                    file_label.setText(f"已选择 {len(file_paths)} 张，最新：{file_paths[-1]}")
+                else:
+                    file_label.setText("未选择图片")
+                for p in merged:
                     _add_thumbnail(p)
             else:
                 file_label.setText("未选择图片")
@@ -311,12 +478,33 @@ class MainWindow(QMainWindow):
                 wdg = item.widget()
                 if wdg is not None:
                     wdg.deleteLater()
+            # 重新放回加号按钮
+            uploads_layout.addWidget(add_item)
+            _ensure_add_item_rightmost()
 
-        # 预览区域
+        # 初始化：在预览窗口右侧放置加号用于添加图片
+        uploads_layout.addWidget(add_item)
+        _ensure_add_item_rightmost()
+        # 绑定加号与左侧叉号
+        add_btn.clicked.connect(do_choose)
+        btn_clear_all.clicked.connect(do_clear)
+
+        # 预览区域（输出图片）：16:9 框（横向自适应窗口宽度，居中摆放），内部保持比例显示
+        preview_frame = QFrame()
+        preview_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        # 初始尺寸将由窗口 resize 时动态调整为 16:9
         preview = QLabel("预览区域")
-        preview.setMinimumHeight(320)
-        preview.setScaledContents(True)
-        layout.addWidget(preview)
+        preview.setScaledContents(False)  # 保持比例缩放，由我们手动设置缩放后的 pixmap
+        preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pf_layout = QVBoxLayout()
+        pf_layout.setContentsMargins(0, 0, 0, 0)
+        pf_layout.addWidget(preview)
+        preview_frame.setLayout(pf_layout)
+        # 记录以便 resize 时动态调整
+        self._ai_preview_frame = preview_frame
+        self._ai_preview_label = preview
+        self._ai_thumbs_frame = thumbs_frame
+        layout.addWidget(preview_frame, alignment=Qt.AlignmentFlag.AlignCenter)
 
         def _guess_mime(path: str) -> str:
             ext = os.path.splitext(path)[1].lower()
@@ -337,6 +525,29 @@ class MainWindow(QMainWindow):
             if not fp:
                 status.setText("提示：请先选择图片")
                 return
+            # 模型联动输入校验
+            lm = m.lower()
+            is_gem = lm.startswith("gemini") or lm.startswith("imagen")
+            # 选择数量上限校验（防止误操作超限发起请求）
+            limit_chk = _max_images_for_model(m)
+            if len(file_paths) > limit_chk:
+                status.setText(f"输入错误：当前模型最多允许 {limit_chk} 张图片，请移除多余图片。")
+                return
+            if is_gem:
+                # Gemini：必须提供宽高比；分辨率可选（1K/2K/4K）
+                ar = ar_select.currentText().strip()
+                res = res_select.currentText().strip()
+                if ar not in {"1:1","2:3","3:2","3:4","4:3","4:5","5:4","9:16","16:9","21:9"}:
+                    status.setText("输入错误：Aspect Ratio 仅支持列表中的选项")
+                    return
+                if res and res.upper() not in {"1K","2K","4K"}:
+                    status.setText("输入错误：Resolution 仅支持 1K/2K/4K（大写K）")
+                    return
+            else:
+                # OpenAI：size 可选但如提供必须为支持的尺寸
+                if s and s.lower() not in {"256x256","512x512","1024x1024"}:
+                    status.setText("输入错误：尺寸仅支持 256x256 / 512x512 / 1024x1024")
+                    return
             try:
                 # multipart/form-data：按选择顺序（最早→最新）传递多图
                 opened_files = []
@@ -353,10 +564,21 @@ class MainWindow(QMainWindow):
                             )
                         )
                     data = {"prompt": p}
-                    if s:
-                        data["size"] = s
                     if m:
                         data["model"] = m
+                    # 根据模型推断并传递提供者及相关尺寸参数
+                    if is_gem:
+                        data["provider"] = "gemini"
+                        data["aspect_ratio"] = ar_select.currentText().strip()
+                        res_val = res_select.currentText().strip()
+                        if res_val:
+                            data["image_resolution"] = res_val
+                    else:
+                        data["provider"] = "openai"
+                        if s:
+                            data["size"] = s
+                    # 根据模型推断并传递提供者（openai/gemini）
+                    # provider 已在上方按模型设置
                     if api_key:
                         data["api_key"] = api_key
                     if org_id:
@@ -383,7 +605,7 @@ class MainWindow(QMainWindow):
                             if not pix.isNull():
                                 # 以保持比例的方式填充预览区域
                                 scaled = pix.scaled(
-                                    preview.size(),
+                                    preview_frame.size(),
                                     Qt.AspectRatioMode.KeepAspectRatio,
                                     Qt.TransformationMode.SmoothTransformation,
                                 )
@@ -424,20 +646,21 @@ class MainWindow(QMainWindow):
                 latest = max(files, key=lambda p: os.path.getmtime(p))
                 pix = QPixmap(latest)
                 if not pix.isNull():
-                    preview.setPixmap(pix)
+                    scaled = pix.scaled(
+                        preview_frame.size(),
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                    preview.setPixmap(scaled)
                     status.setText(f"已预览：{latest}")
                 else:
                     preview.setText("预览失败：无法加载图片")
             except Exception as e:
                 status.setText(f"预览异常：{e}")
 
-        btn_choose.clicked.connect(do_choose)
-        btn_clear.clicked.connect(do_clear)
         btn_generate.clicked.connect(do_generate)
         btn_open_dir.clicked.connect(do_open_dir)
         btn_preview_latest.clicked.connect(do_preview_latest)
-        layout.addWidget(btn_choose)
-        layout.addWidget(btn_clear)
         layout.addWidget(btn_generate)
         layout.addWidget(btn_open_dir)
         layout.addWidget(btn_preview_latest)

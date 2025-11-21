@@ -21,7 +21,17 @@ class StorageService:
         return self._uploads
 
     def save_upload(self, filename: str, content: bytes) -> Path:
-        path = self._uploads / filename
+        # 保留原始文件名的主体与扩展名，生成唯一文件名，避免同名覆盖
+        base = Path(filename).name
+        stem = Path(base).stem or "upload"
+        ext = Path(base).suffix or ".png"
+        ts = dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        path = self._uploads / f"{stem}_{ts}{ext}"
+        # 极端情况下时间戳碰撞，追加序号确保唯一
+        idx = 0
+        while path.exists():
+            idx += 1
+            path = self._uploads / f"{stem}_{ts}_{idx}{ext}"
         path.write_bytes(content)
         return path
 

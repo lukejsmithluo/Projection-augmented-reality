@@ -14,6 +14,9 @@
 /Projector-Calibration/**/graycode_pattern/
 /Projector-Calibration/**/graycode_pattern/**
 
+# Local AI images data
+/data/ai_images/
+
 # Virtual Environments
 zed_env/
 venv/

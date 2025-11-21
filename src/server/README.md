@@ -21,10 +21,21 @@
   - `POST /mapping/stop` → 返回保存的文件列表：`{"saved_files": [".../mesh.obj", ".../mesh.mtl", ".../texture.png"]}`。
   - `GET /mapping/status` → 返回模块状态：`{"module": "spatial_mapping", "status": {"state": "RUNNING"}}`。
 - 标定（Calibration）：
-  - `POST /calibration/run` 请求体示例：`{"proj_height": 1080, "proj_width": 1920, "rounds": 1}` → 返回 `{"accepted": true}`。
+ - `POST /calibration/run` 请求体示例：`{"proj_height": 1080, "proj_width": 1920, "rounds": 1}` → 返回 `{"accepted": true}`。
   - `GET /calibration/result` → 当前返回占位信息（后续解析输出文件）。
  - AI 图像生成（AI Image Generation）：
-   - `POST /ai-image/edit`（multipart）上传图片并提供 `prompt`，可选 `size`（默认 `1024x1024`），可选 `api_key`（若提供将覆盖当前进程环境变量）。支持多图上传字段 `images`（保留左→右的选择顺序），当前后端将以“最新一张”作为实际生成输入。成功返回生成的图片文件路径：`{"accepted": true, "output_file": "data/ai_images/outputs/gen_YYYYmmdd_HHMMSS.png"}`。若未配置 `OPENAI_API_KEY`，返回错误：`{"accepted": false, "error_code": "NO_API_KEY", "error": "OPENAI_API_KEY not configured"}`。
+   - `POST /ai-image/edit`（multipart）上传图片并提供 `prompt`。可选字段：
+     - OpenAI：`size`（默认 `1024x1024`，允许 `256x256/512x512/1024x1024`）。
+     - Gemini：`aspect_ratio`（允许 `1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9`）、`image_resolution`（允许 `1K/2K/4K`，需大写 K）。
+     - 通用：`model`（支持 `gemini-2.5-flash-image`/`gemini-3-pro-image-preview`/`gpt-image-1` 等图像模型）、`provider`（`gemini|openai`，默认保持 `openai` 以兼容既有用例）、`api_key`（覆盖当前进程环境变量）、`api_org_id`（仅 OpenAI，用于组织）。
+     支持多图上传字段 `images`（保留左→右的选择顺序），当前后端将以“最新一张”作为实际生成输入。成功返回生成的图片文件路径：`{"accepted": true, "output_file": "data/ai_images/outputs/gen_YYYYmmdd_HHMMSS.png"}`。
+     - 保存策略：所有上传图片均保存到 `data/ai_images/uploads`，文件名由存储服务生成且全局唯一（时间戳+序号），便于后续留痕与复现；生成输出统一保存到 `data/ai_images/outputs`（`PNG/JPG`）。
+     - 上传数量限制（后端强制）：
+       - OpenAI（`gpt-image-1`）：最多 1 张；
+       - Gemini 3 Pro Image（`gemini-3-pro-image-preview`）：最多 14 张；
+       - Gemini 2.5（含 `gemini-2.5-flash-image`）与其他 Gemini/Imagen：默认最多 16 张；
+       超过上限时返回统一错误：`{"accepted": false, "error_code": "TOO_MANY_IMAGES", "error": "..."}`。
+   - Key 校验：当 `provider=openai` 时需 `OPENAI_API_KEY`；当 `provider=gemini` 时需 `GEMINI_API_KEY`（或 `GOOGLE_API_KEY`）。组织未验证使用 OpenAI 将映射为 `ORG_NOT_VERIFIED`。
    - `GET /ai-image/status` → 返回模块状态与最近输出文件路径。
 - 策略（Policy）：
   - `GET /policy/region/status` → 返回地区策略评估结果（国家/地区代码、城市、是否允许、连通性诊断、原因）。
@@ -53,10 +64,22 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/calibration/run" -Method POST -Con
  curl -X POST \
    -F "prompt=make it look like watercolor" \
    -F "size=1024x1024" \
+   -F "model=gpt-image-1" \
+   -F "api_org_id=org_XXXXXXXX" \
    -F "api_key=sk-xxxxx" \
    -F "images=@C:/path/to/img1.png" \
    -F "images=@C:/path/to/img2.png" \
    -F "images=@C:/path/to/img3.png" \
+   http://127.0.0.1:8000/ai-image/edit
+
+ # 使用 Gemini 生成/编辑（按选择最新一张作为输入；需 GEMINI_API_KEY）
+ curl -X POST \
+   -F "prompt=make it look like watercolor" \
+   -F "size=1024x1024" \
+   -F "model=gemini-2.5-flash-image" \
+   -F "provider=gemini" \
+   -F "api_key=YOUR_GEMINI_API_KEY" \
+   -F "image=@C:/path/to/local.png" \
    http://127.0.0.1:8000/ai-image/edit
 ```
 
@@ -65,6 +88,9 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/calibration/run" -Method POST -Con
 - 路由通过依赖注入（`Depends(get_registry)`) 获取注册中心并调用模块的 `configure()/start()/stop()/status()`。
 
 更新记录：
+- 2025-11-21：AI 图像生成统一保存策略（全部上传均保存，文件名唯一），并按提供者限制上传数量（OpenAI=1；Gemini-3-Pro-Image-Preview=14；Gemini-2.5=16）；超限返回 `TOO_MANY_IMAGES`。
+- 2025-11-21：AI 图像生成接口新增 Gemini 3 Pro Image（`gemini-3-pro-image-preview`）支持，并增加 `aspect_ratio` 与 `image_resolution` 字段校验；UI 联动输入控件与后端参数保持一致。
+- 2025-11-21：AI 图像生成支持双提供者（OpenAI/Gemini），新增 `provider` 字段与 Gemini Key 校验；地区策略按提供者使用对应白名单；新增 Gemini 示例调用。
  - 2025-11-20：新增政策路由 `/policy/region/status` 并在 AI 路由接入地区策略校验（hybrid）；默认严格白名单（官方列表动态获取），VPN 以出口 IP 定位为准。
  - 2025-11-20：格式化与导入顺序统一（black/isort），不涉及业务逻辑；确保本地与 CI 风格检查一致通过。
  - 2025-11-19：风格维护（imports 排序与格式统一），修复 CI isort/black 提示；不涉及业务改动。
