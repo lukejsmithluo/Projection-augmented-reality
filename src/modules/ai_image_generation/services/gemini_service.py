@@ -30,9 +30,7 @@ class GeminiImageService:
             except Exception as e:  # ImportError or other
                 raise RuntimeError("GEMINI_LIB_MISSING") from e
             # Prefer explicit API key envs; the client auto-picks GEMINI_API_KEY/GOOGLE_API_KEY
-            api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get(
-                "GOOGLE_API_KEY"
-            )
+            api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
             try:
                 # Construct client; pass api_key if available to avoid ambiguity
                 self._client = genai.Client(api_key=api_key)  # type: ignore
@@ -63,9 +61,7 @@ class GeminiImageService:
             raise FileNotFoundError(f"Input image not found: {image_path}")
 
         # Resolve model & aspect ratio
-        chosen_model = (
-            model or "gemini-2.5-flash-image"
-        ).strip() or "gemini-2.5-flash-image"
+        chosen_model = (model or "gemini-2.5-flash-image").strip() or "gemini-2.5-flash-image"
         # Resolve aspect ratio preference: explicit > derived from size > default
         ar = (aspect_ratio or "").strip()
         if not ar:
