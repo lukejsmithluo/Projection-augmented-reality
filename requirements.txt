@@ -1,0 +1,37 @@
+# Root workspace reproducible environment (pinned versions)
+# Generated based on current working environment; keep pinned to ensure stable reproducibility.
+
+fastapi==0.121.0
+uvicorn==0.38.0
+starlette==0.49.3
+pydantic==2.12.3
+pydantic-settings==2.11.0
+requests==2.32.5
+httpx==0.28.1
+python-multipart==0.0.20
+
+# AI SDKs
+google-genai==1.52.0
+openai==2.8.1
+
+# UI / desktop integration
+PyQt6==6.10.0
+screeninfo==0.8.1
+
+# Numeric / imaging
+numpy==2.2.6
+pillow==11.3.0
+
+# Optional: visualization / compute used in the project
+taichi==1.7.4
+
+# Dev / test tools
+pytest==8.4.2
+ruff==0.14.3
+black==25.9.0
+isort==7.0.0
+
+# Misc runtime helpers
+typing_extensions==4.15.0
+websockets==15.0.1
+watchfiles==1.1.1

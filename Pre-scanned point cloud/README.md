@@ -43,17 +43,20 @@ cd src
 ..\zed_env\Scripts\python.exe spatial_mapping.py
 ```
 
-### 方法二：创建新的虚拟环境
-如果需要重新创建虚拟环境：
-```bash
-# 创建虚拟环境
+### 方法二：创建新的虚拟环境（含固定依赖）
+如果需要重新创建虚拟环境，请按以下步骤（PowerShell）：
+```
+# 创建并激活虚拟环境
 python -m venv zed_env
+.\zed_env\Scripts\Activate.ps1
 
-# 安装依赖
-.\zed_env\Scripts\pip.exe install -r requirements.txt
+# 升级pip并安装固定依赖
+python -m pip install -U pip; python -m pip install -r requirements.txt
 
-# 手动复制 pyzed 库（如果需要特定版本）
-# 从系统 Python 的 site-packages 复制 pyzed 文件夹到虚拟环境
+# 安装 ZED Python SDK（pyzed）
+# 注意：pyzed 不在 PyPI 发布，需安装 ZED SDK 5.1.0 后，使用官方提供的本地 wheel 文件
+# 示例：
+# .\zed_env\Scripts\pip.exe install C:\path\to\pyzed-5.1-cp310-cp310-win_amd64.whl
 ```
 
 ## 使用方法
