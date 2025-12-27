@@ -21,6 +21,7 @@ screeninfo==0.8.1
 # Numeric / imaging
 numpy==2.2.6
 pillow==11.3.0
+PyOpenGL==3.1.6
 
 # Optional: visualization / compute used in the project
 taichi==1.7.4

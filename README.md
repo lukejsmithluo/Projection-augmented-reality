@@ -100,6 +100,27 @@ python -m venv "Pre-scanned point cloud/zed_env"
 - 所有 PowerShell 命令使用分号 `;` 串联，不使用 `&&`。
 - 若你希望减少仓库体积，可考虑使用 Git LFS 管理大体积产物。
 
+## 故障排除（WinError 10013）
+当运行 `python main.py` 或启动后端服务时报错：
+`[WinError 10013] 以一种访问权限不允许的方式做了一个访问套接字的尝试`
+
+常见原因：
+- 端口被系统保留或策略排除（excluded port range）
+- Windows 防火墙/杀毒软件阻止 Python 监听入站连接
+- 企业安全策略限制本机监听服务
+
+解决步骤（PowerShell）：
+- 尝试更换端口运行：
+  - `$env:API_PORT='18000'; python main.py`
+- 检查并允许 Python 通过防火墙（控制面板或安全软件设置）。
+- 以管理员身份执行终端后再次运行。
+- 查看系统保留端口范围：
+  - `netsh int ipv4 show excludedportrange protocol=tcp`
+  - 若目标端口在保留范围，改用其他端口（例如 18000/9000）。
+
+说明：
+- 项目已在 `main.py` 中对 WinError 10013 做了捕获与端口回退（自动尝试 18000/9000），并打印详细提示；若仍失败，请按上述步骤逐一排查。
+
 ## 风格检查启用（CI & 本地）
 - 已在 CI 中启用 `ruff/black/isort` 风格检查（作用范围：`src/`、`tests/`、`scripts/`、`.trae/`）。
 - 本地通过 `pre-commit` 自动运行风格检查与非硬件测试，失败阻止提交。

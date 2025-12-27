@@ -8,11 +8,39 @@ This repository provides python scripts to calibrate projector-camera system usi
     * Python 3 is recommended
 * OpenCV
     * `python -m pip install opencv-python opencv-contrib-python`
+* ZED SDK (for ZED camera users)
+    * `pyzed`
+* Screeninfo
+    * `python -m pip install screeninfo`
 * Printed chessboard
     * You can find PDF [here](http://opencv.jp/sample/pics/chesspattern_7x10.pdf)
 
 ## How to use
-### Step 1 : Generate gray code patterns
+
+### Step 0: Automated Data Acquisition (Recommended for ZED users)
+
+If you have a ZED camera and a projector, you can use `capture_data.py` to automate the projection and capture process.
+
+```sh
+python capture_data.py <projector_pixel_height> <projector_pixel_width> [--monitor <monitor_index>] [--pattern_dir <pattern_directory>]
+
+# example (generate patterns on the fly)
+python capture_data.py 720 1280 --monitor 1
+
+# example (use pre-generated patterns)
+python capture_data.py 720 1280 --monitor 1 --pattern_dir "./graycode_pattern"
+```
+
+This script will:
+1. Initialize the ZED camera (2K, 15FPS, Neural Plus).
+2. Generate gray code patterns in memory (or load them from `pattern_dir` if specified).
+3. Open a full-screen window on the specified monitor (projector).
+4. Wait for you to position the chessboard and press 'Enter'.
+5. Automatically project patterns and capture images to `capture_0`, `capture_1`, etc.
+
+### Step 1 : Generate gray code patterns (Manual method)
+
+If you are NOT using the automated script above, you need to generate patterns first.
 
 Open your terminal and type the following command.
 
@@ -35,10 +63,7 @@ Then, project the gray code patterns generated in the previous step from the pro
 
 Although minimum required shot is one, it is recommended to capture more than 5 times with different attitudes of the chessboard to improve the calibration accuracy.
 
-Captured images will be saved as `./capture_*/graycode_*.(png/jpg)` in the `Projector-Calibration/` directory.
-If you use the helper script `ZED_Projector_Calibration/CalibrationCaptureProgram/calibration_capture.py`,
-it now writes outputs to `Projector-Calibration/capture_*` and invokes `Projector-Calibration/calibrate_optimized.py` directly.
-This fixes previous behavior where outputs were mistakenly written to an external absolute path.
+Captured images must be saved as `./capture_*/graycode_*.(png/jpg)`.
 
 <table>
    <tr>
@@ -52,10 +77,10 @@ This fixes previous behavior where outputs were mistakenly written to an externa
 After saving the captured images, run the following command.
 
 ```sh
-python calibrate.py <projector_pixel_height> <projector_pixel_width> <num_chess_corners_vert> <num_chess_corners_hori> <chess_block_size> <graycode_step> [-black_thr <black_thr(default=40)>] [-white_thr <white_thr(default=5)>][-camera <camera_parameter_json>]
+python calibrate.py <projector_pixel_height> <projector_pixel_width> <num_chess_corners_vert> <num_chess_corners_hori> <chess_block_size> <graycode_step> [-black_thr <black_thr(default=40)>] [-white_thr <white_thr(default=5)>] [-camera <camera_parameter_json>] [-input_dir <input_directory(default=./)>]
 
-# example (you can test this command in the sample_data directory)
-python ../calibrate.py 768 1024 9 7 75 1 -black_thr 40 -white_thr 5
+# example (using sample_data)
+python calibrate.py 768 1024 9 7 75 1 -black_thr 40 -white_thr 5 -input_dir "./sample_data"
 ```
 
 `chess_block_size` means the length (mm cm m) of a block on the chessboard.
@@ -69,14 +94,14 @@ To avoid decoding errors, increase these variables.
 By indicating this option, the intrinsic camera parameters will be fixed when compute the initial solution of the camera attitudes.
 See "camera_config.json" as an example.
 
+`input_dir` is the directory containing the `capture_*` folders. If not specified, the script looks in the current directory.
+
 Calibration result will be displayed on your terminal and saved in `./calibration_result.xml` (with cv::FileStorage format).
 
-## Notes
-- Ensure Stereolabs ZED SDK Python API (`pyzed.sl`) is installed and the camera is not occupied by other applications.
-- Large captured image sets can be heavy; consider adding ignore rules for `Projector-Calibration/capture_*/` in VCS if needed.
-
-## Update Log
-- 2025-11-05: Fixed capture output path and calibration script invocation to use the repository's `Projector-Calibration` directory.
+#### Debugging & Visualization
+*   **Visualizing Detected Projector Corners**: The script automatically saves debug images named `visualize_corners_projector_capture_X.png`. Check these images to verify if the projector's chessboard corners are correctly identified.
+*   **High RMS Error**: If you get high RMS error (> 2.0), check the per-view RMS output in the terminal. If specific views have high error, they likely contain outliers (decoding errors) or poor detections.
+*   **Robustness**: The script uses RANSAC for homography estimation to filter out gray code decoding errors.
 
 ## Additional Resource
 
