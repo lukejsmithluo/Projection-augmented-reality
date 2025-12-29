@@ -1,9 +1,50 @@
 # 投影标定模块（Projector-Calibration）
 
-封装现有 `Projector-Calibration/calibrate_optimized.py`，通过子进程方式启动，保留原流程。
+本模块实现了基于 Gray Code 结构光的投影仪-相机系统（Pro-Cam）标定功能。
+已完全重构为 Python 原生实现，不再依赖外部子进程脚本。
 
- 后续将通过后端API与UI触发该模块。
+## 功能特性
+- **相机参数获取**：自动读取 ZED 2i 相机内参。
+- **数据采集**：控制投影仪投射 Gray Code 图案，并控制相机同步采集。
+- **系统标定**：基于采集的图像序列，计算投影仪内参及 Pro-Cam 外参。
+- **结果输出**：输出 XML 格式标定结果，兼容 OpenCV `FileStorage`。
 
-更新记录：
-- 2025-11-05：启用风格检查（ruff/black/isort）；本目录 Python 文件已按规则格式化，未改变业务逻辑。
-- 2025-11-05：新增配置类 `ProjectorCalibrationSettings`，路由 `POST /calibration/run` 会通过 `configure()/start()` 传入 `proj_height/proj_width/rounds` 参数；`GET /calibration/result` 暂返回占位信息，后续解析输出文件。
+## 架构
+模块内部划分为三个服务：
+1. **CameraService**: 负责与 ZED SDK 交互，获取相机参数。
+2. **PatternService**: 负责生成 Gray Code 投影图案。
+3. **CaptureService**: 负责投影与采集流程控制（OpenCV 窗口显示图案 + ZED 采集）。
+4. **CalibrationService**: 负责图像处理与标定算法（Gray Code 解码、角点检测、立体标定）。
+
+## API 接口
+模块通过 `src/server/api/routes/calibration_routes.py` 暴露以下 API：
+- `GET /calibration/status`: 获取模块状态。
+- `POST /calibration/camera/params`: 获取并保存相机参数。
+- `POST /calibration/pattern/generate`: 生成 Gray Code 图案序列。
+- `POST /calibration/capture/start`: 开启采集会话（打开相机与投影窗口）。
+- `POST /calibration/capture/shot`: 采集当前位姿（投射一组图案并拍照）。
+- `POST /calibration/capture/stop`: 结束采集会话。
+- `POST /calibration/run`: 运行标定算法，返回结果。
+
+## 配置参数
+可在 `ProjectorCalibrationSettings` 中配置：
+- `proj_height` / `proj_width`: 投影仪分辨率（默认 720p）。
+- `monitor_index`: 投影仪所在的显示器索引。
+- `chess_vert` / `chess_hori`: 标定板内角点数量。
+- `chess_block_size`: 标定板方格物理尺寸（mm）。
+- `graycode_step`: Gray Code 条纹步长。
+- **输出目录**：
+  - 格雷码图案：`data/calibration/patterns`
+  - 采集数据：`data/calibration/captures`
+  - 相机参数：`data/calibration/camera_config.json`
+- **配置文件**：模块内 `config.py` 或通过 API 传递参数。
+
+## 依赖
+- `pyzed` (ZED SDK)
+- `opencv-python`
+- `screeninfo`
+- `numpy`
+
+## 更新记录
+- 2025-12-29: 新增 PatternService 及对应 API，支持在线生成 Gray Code 图案。
+- 2025-12-29: 重构模块，集成 `Procam-calibration` 代码，实现原生服务调用与完整 API 支持。

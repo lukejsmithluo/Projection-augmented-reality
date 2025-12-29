@@ -16,6 +16,14 @@
 # Local AI images data
 /data/ai_images/
 
+# Ignore all image files in data directory (calibration patterns, captures, etc.)
+/data/**/*.png
+/data/**/*.jpg
+/data/**/*.jpeg
+/data/**/*.bmp
+/data/**/*.tiff
+
+
 # Virtual Environments
 zed_env/
 venv/

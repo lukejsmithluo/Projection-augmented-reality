@@ -38,6 +38,7 @@ git push
 如需新增忽略规则，请在根目录 `.gitignore` 中追加相应条目，避免分散配置导致维护困难。
 
 更新记录：
+- 2025-12-29：更新 `.gitignore` 策略，忽略 `data/` 目录下所有图片文件；更新文档以反映最新的 UI 操作流程与数据目录结构。
 - 2025-11-05：完善 `.gitignore`，新增 `Pre-scanned point cloud/data/` 与 `.ruff_cache/` 忽略，避免上传大体积产物与工具缓存。
 - 2025-11-10：调整忽略策略，允许提交 `Pre-scanned point cloud/data/` 下的 `.obj/.mtl/.png` 资产文件；其余仍忽略以控制仓库体积。
  - 2025-11-26：应用户要求，允许提交 `Pre-scanned point cloud/zed_env/` 虚拟环境目录；在 `.gitignore` 中添加 `!/Pre-scanned point cloud/zed_env/` 显式取消忽略。
