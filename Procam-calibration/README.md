@@ -103,6 +103,11 @@ Calibration result will be displayed on your terminal and saved in `./calibratio
 *   **High RMS Error**: If you get high RMS error (> 2.0), check the per-view RMS output in the terminal. If specific views have high error, they likely contain outliers (decoding errors) or poor detections.
 *   **Robustness**: The script uses RANSAC for homography estimation to filter out gray code decoding errors.
 
+#### 常见问题（Troubleshooting）
+*   如果终端频繁出现 `was skiped because decoded pixels were too few` 或 `too few corners were found (less than 3)`，通常表示棋盘角点附近“可被灰码稳定解码”的像素太少（棋盘在图像中太小/离得太远、棋盘不在投影覆盖范围内、投影对比度不足或曝光波动等都会导致）。
+*   优先确保：`proj_height/proj_width/graycode_step` 在采集与标定时完全一致，并让棋盘尽量占据相机画面的较大区域且大部分位于投影光斑内；在此基础上再调 `black_thr/white_thr`。
+*   如果 `=== Result === RMS` 特别大且内参/畸变参数明显发散，通常说明存在离群对应点或某些视图质量过差；建议检查 `visualize_corners_projector_capture_X.png`，并删除或重拍点数过少的 `capture_X` 视图。
+
 ## Additional Resource
 
 This repository utilize the stereo calibration method in OpenCV. See the OpenCV documentation for details on coordinate systems, calibration method and output parameters.

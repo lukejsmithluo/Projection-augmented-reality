@@ -82,6 +82,9 @@ def process_calibration_xml(xml_path):
     sensor_width_mm = 36.0 
     focal_length_mm = fx * sensor_width_mm / proj_w
     
+    print(f"   * Intrinsics (pixels):")
+    print(f"       fx: {fx:.6f}")
+    print(f"       fy: {fy:.6f}")
     print(f"   * Current Focal Length: {focal_length_mm:.4f} mm")
     print(f"   * Current Aperture:     建议设置 > 10 (例如 22) 以获得全清晰画面")
     print(f"   * Focus Distance:       设置为投影距离 (例如 200.0 cm)")
