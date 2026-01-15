@@ -6,8 +6,164 @@ import time
 import argparse
 import cv2
 import numpy as np
-import pyzed.sl as sl
-from screeninfo import get_monitors
+import subprocess
+import platform
+
+try:
+    import pyzed.sl as sl
+except Exception:
+    sl = None
+
+try:
+    from screeninfo import get_monitors
+except Exception:
+    get_monitors = None
+
+
+def _is_windows():
+    return platform.system().lower() == "windows"
+
+
+def _run_powershell(command):
+    try:
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", command],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return ""
+        return proc.stdout or ""
+    except Exception:
+        return ""
+
+
+def _list_camera_friendly_names_windows():
+    if not _is_windows():
+        return []
+    out = _run_powershell(
+        "Get-PnpDevice -Class Camera -Status OK | Select-Object -ExpandProperty FriendlyName"
+    )
+    lines = [line.strip() for line in out.splitlines() if line.strip()]
+    return lines
+
+
+def _probe_opencv_cameras(max_indices=12):
+    candidates = []
+    for idx in range(max_indices):
+        cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW if _is_windows() else cv2.CAP_ANY)
+        if not cap.isOpened():
+            cap.release()
+            continue
+        ok, frame = cap.read()
+        cap.release()
+        if ok and frame is not None and frame.size > 0:
+            candidates.append(idx)
+    return candidates
+
+
+def _dedupe_resolutions(resolutions):
+    seen = set()
+    out = []
+    for w, h in resolutions:
+        key = (int(w), int(h))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
+def _probe_supported_resolutions_opencv(device_index):
+    candidate_res = [
+        (3840, 2160),
+        (2560, 1440),
+        (1920, 1080),
+        (1600, 900),
+        (1280, 720),
+        (1024, 768),
+        (800, 600),
+        (640, 480),
+        (320, 240),
+    ]
+    supported = []
+    cap = cv2.VideoCapture(device_index, cv2.CAP_DSHOW if _is_windows() else cv2.CAP_ANY)
+    if not cap.isOpened():
+        cap.release()
+        return []
+
+    for w, h in candidate_res:
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(w))
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(h))
+        ok = False
+        frame = None
+        for _ in range(10):
+            ok, frame = cap.read()
+            if ok and frame is not None and frame.size > 0:
+                break
+        if not ok or frame is None:
+            continue
+        actual_h, actual_w = frame.shape[:2]
+        supported.append((actual_w, actual_h))
+
+    cap.release()
+    return _dedupe_resolutions(supported)
+
+
+def _choose_from_list(title, items):
+    print(f"\n{title}")
+    for i, item in enumerate(items):
+        print(f"  [{i}] {item}")
+    while True:
+        try:
+            s = input("请输入序号: ").strip()
+        except KeyboardInterrupt:
+            raise
+        if s.isdigit():
+            idx = int(s)
+            if 0 <= idx < len(items):
+                return idx
+        print("输入无效，请重试。")
+
+
+def _preview_camera_opencv(cap, window_name="Camera Preview"):
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    print("预览窗口已打开：按 Enter 确认；按 q 或 Esc 取消。")
+    while True:
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            continue
+        cv2.imshow(window_name, frame)
+        key = cv2.waitKey(1) & 0xFF
+        if key == 13:
+            cv2.destroyWindow(window_name)
+            return True
+        if key == 27 or key == ord("q"):
+            cv2.destroyWindow(window_name)
+            return False
+
+
+def _preview_camera_zed(zed, view, window_name="Camera Preview"):
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    print("预览窗口已打开：按 Enter 确认；按 q 或 Esc 取消。")
+    image_zed = sl.Mat()
+    while True:
+        if zed.grab() == sl.ERROR_CODE.SUCCESS:
+            zed.retrieve_image(image_zed, view)
+            frame = image_zed.get_data()
+            if frame is None:
+                continue
+            if frame.shape[-1] == 4:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+            cv2.imshow(window_name, frame)
+        key = cv2.waitKey(1) & 0xFF
+        if key == 13:
+            cv2.destroyWindow(window_name)
+            return True
+        if key == 27 or key == ord("q"):
+            cv2.destroyWindow(window_name)
+            return False
 
 class ProcamCapturer:
     """
@@ -15,15 +171,27 @@ class ProcamCapturer:
     Controls a projector to display Gray Code patterns and triggers a ZED camera to capture images.
     """
 
-    def __init__(self, proj_width, proj_height, graycode_step=1, monitor_index=1, output_dir=".", pattern_dir=None):
+    def __init__(
+        self,
+        proj_width,
+        proj_height,
+        graycode_step=1,
+        monitor_index=1,
+        output_dir=".",
+        pattern_dir=None,
+        camera_mode="auto",
+    ):
         self.proj_width = proj_width
         self.proj_height = proj_height
         self.graycode_step = graycode_step
         self.monitor_index = monitor_index
         self.output_dir = output_dir
         self.pattern_dir = pattern_dir
-        
-        self.zed = sl.Camera()
+        self.camera_mode = camera_mode
+
+        self.zed = None
+        self.zed_view = None
+        self.opencv_cap = None
         self.window_name = "Projector Pattern"
         self.patterns = []
         
@@ -31,20 +199,102 @@ class ProcamCapturer:
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
-    def initialize_camera(self):
-        """Initialize ZED 2i Camera with user preferences."""
+    def _initialize_zed(self):
+        if sl is None:
+            print("Error: pyzed is not available, cannot use ZED mode.")
+            sys.exit(1)
+
+        zed = sl.Camera()
+
+        resolutions = [
+            ("HD2K (2208x1242)", sl.RESOLUTION.HD2K),
+            ("HD1080 (1920x1080)", sl.RESOLUTION.HD1080),
+            ("HD720 (1280x720)", sl.RESOLUTION.HD720),
+            ("VGA (672x376)", sl.RESOLUTION.VGA),
+        ]
+
+        res_idx = _choose_from_list("请选择 ZED 分辨率:", [r[0] for r in resolutions])
+        eye_idx = _choose_from_list("请选择 ZED 使用哪一目:", ["LEFT", "RIGHT"])
+        zed_view = sl.VIEW.LEFT if eye_idx == 0 else sl.VIEW.RIGHT
+
         init_params = sl.InitParameters()
-        init_params.camera_resolution = sl.RESOLUTION.HD2K  # User preference: 2K
-        init_params.camera_fps = 15  # User preference: 15FPS
-        init_params.depth_mode = sl.DEPTH_MODE.NEURAL_PLUS  # User preference: NEURAL PLUS
+        init_params.camera_resolution = resolutions[res_idx][1]
+        init_params.camera_fps = 15
+        init_params.depth_mode = sl.DEPTH_MODE.NEURAL_PLUS
         init_params.coordinate_units = sl.UNIT.MILLIMETER
-        
-        err = self.zed.open(init_params)
+
+        err = zed.open(init_params)
         if err != sl.ERROR_CODE.SUCCESS:
             print(f"Error opening ZED camera: {err}")
             sys.exit(1)
-            
-        print(f"ZED Camera initialized: {self.zed.get_camera_information().camera_model}")
+
+        self.zed = zed
+        self.zed_view = zed_view
+        print(f"Camera initialized: {self.zed.get_camera_information().camera_model}")
+        ok = _preview_camera_zed(self.zed, self.zed_view)
+        if not ok:
+            print("用户取消。")
+            sys.exit(0)
+
+    def _initialize_opencv(self):
+        friendly = _list_camera_friendly_names_windows()
+        indices = _probe_opencv_cameras()
+        if len(indices) == 0:
+            print("Error: no camera device found by OpenCV.")
+            sys.exit(1)
+
+        items = []
+        for i, idx in enumerate(indices):
+            name = friendly[i] if i < len(friendly) else "Unknown Camera"
+            items.append(f"{name} (OpenCV index {idx})")
+
+        pick = _choose_from_list("检测到以下相机设备:", items)
+        device_index = indices[pick]
+
+        resolutions = _probe_supported_resolutions_opencv(device_index)
+        if len(resolutions) == 0:
+            resolutions = [(1280, 720), (1920, 1080), (640, 480)]
+        res_items = [f"{w}x{h}" for (w, h) in resolutions]
+        res_pick = _choose_from_list("请选择相机分辨率:", res_items)
+        w, h = resolutions[res_pick]
+
+        cap = cv2.VideoCapture(device_index, cv2.CAP_DSHOW if _is_windows() else cv2.CAP_ANY)
+        if not cap.isOpened():
+            cap.release()
+            print("Error: failed to open camera.")
+            sys.exit(1)
+
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(w))
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, int(h))
+        ok = _preview_camera_opencv(cap)
+        if not ok:
+            cap.release()
+            print("用户取消。")
+            sys.exit(0)
+
+        self.opencv_cap = cap
+
+    def initialize_camera(self):
+        if self.camera_mode not in {"auto", "zed", "opencv"}:
+            print("Error: invalid camera_mode.")
+            sys.exit(1)
+
+        if self.camera_mode == "zed":
+            self._initialize_zed()
+            return
+        if self.camera_mode == "opencv":
+            self._initialize_opencv()
+            return
+
+        modes = []
+        if sl is not None:
+            modes.append("ZED (pyzed)")
+        modes.append("Generic Camera (OpenCV)")
+        mode_idx = _choose_from_list("请选择相机类型:", modes)
+        if sl is not None and mode_idx == 0:
+            self._initialize_zed()
+        else:
+            self._initialize_opencv()
 
     def generate_patterns(self):
         """Generate Gray Code patterns or load from directory."""
@@ -70,8 +320,40 @@ class ProcamCapturer:
                         sys.exit(1)
                         
                     self.patterns.append(img)
+
+                # Check if we need to append White/Black patterns
+                gc_height = int((self.proj_height - 1) / self.graycode_step) + 1
+                gc_width = int((self.proj_width - 1) / self.graycode_step) + 1
+                try:
+                    graycode = cv2.structured_light_GrayCodePattern.create(gc_width, gc_height)
+                    expected_count = graycode.getNumberOfPatternImages()
+                    
+                    if len(self.patterns) == expected_count:
+                        print(f"Loaded {len(self.patterns)} patterns (matches expected pure Gray Code count). Appending White and Black.")
+                        self.patterns.append(255 * np.ones((self.proj_height, self.proj_width), np.uint8))
+                        self.patterns.append(np.zeros((self.proj_height, self.proj_width), np.uint8))
+                    elif len(self.patterns) == expected_count + 2:
+                        print(f"Loaded {len(self.patterns)} patterns (matches expected count + 2). Assuming White and Black are included.")
+                    else:
+                        print(f"Warning: Loaded pattern count ({len(self.patterns)}) does not match expected ({expected_count}) or expected+2 ({expected_count+2}).")
+                        if len(self.patterns) > expected_count:
+                             print("Assuming White and Black are already included or extra patterns exist. NOT appending.")
+                        else:
+                             print("Pattern count is low. Appending White and Black anyway.")
+                             self.patterns.append(255 * np.ones((self.proj_height, self.proj_width), np.uint8))
+                             self.patterns.append(np.zeros((self.proj_height, self.proj_width), np.uint8))
+                except Exception as e:
+                    print(f"Warning: Could not verify pattern count using OpenCV: {e}")
+                    # Fallback behavior: if count is even, assume white/black might be missing? 
+                    # Or just append if user says so? 
+                    # Given the user's issue, let's look at the filenames maybe?
+                    # But safest is: if we loaded 'enough', assume it's fine.
+                    # Let's just append if < 40 (heuristic) otherwise don't? No, that's dangerous.
+                    # Let's just append for now if validation fails, as legacy behavior.
+                    self.patterns.append(255 * np.ones((self.proj_height, self.proj_width), np.uint8))
+                    self.patterns.append(np.zeros((self.proj_height, self.proj_width), np.uint8))
                 
-                print(f"Loaded {len(self.patterns)} patterns.")
+                print(f"Total patterns to project: {len(self.patterns)}")
                 return
             else:
                 print(f"Warning: Pattern directory {self.pattern_dir} does not exist. Falling back to generation.")
@@ -107,18 +389,22 @@ class ProcamCapturer:
 
     def setup_projector_window(self):
         """Setup full-screen window on the specified monitor."""
-        monitors = get_monitors()
-        if len(monitors) <= self.monitor_index:
-            print(f"Warning: Monitor index {self.monitor_index} not found. Available monitors: {len(monitors)}")
-            print("Falling back to primary monitor (index 0).")
-            target_monitor = monitors[0]
-        else:
-            target_monitor = monitors[self.monitor_index]
-            
-        print(f"Displaying on monitor: {target_monitor.name} ({target_monitor.width}x{target_monitor.height}) at ({target_monitor.x}, {target_monitor.y})")
-        
+        target_monitor = None
+        if get_monitors is not None:
+            monitors = get_monitors()
+            if len(monitors) <= self.monitor_index:
+                print(f"Warning: Monitor index {self.monitor_index} not found. Available monitors: {len(monitors)}")
+                print("Falling back to primary monitor (index 0).")
+                target_monitor = monitors[0]
+            else:
+                target_monitor = monitors[self.monitor_index]
+            print(
+                f"Displaying on monitor: {target_monitor.name} ({target_monitor.width}x{target_monitor.height}) at ({target_monitor.x}, {target_monitor.y})"
+            )
+
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.moveWindow(self.window_name, target_monitor.x, target_monitor.y)
+        if target_monitor is not None:
+            cv2.moveWindow(self.window_name, target_monitor.x, target_monitor.y)
         # Set to fullscreen
         cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         
@@ -134,8 +420,8 @@ class ProcamCapturer:
             os.makedirs(capture_dir)
             
         print(f"Starting capture sequence {capture_idx}...")
-        
-        image_zed = sl.Mat()
+
+        image_zed = sl.Mat() if self.zed is not None else None
         
         for i, pattern in enumerate(self.patterns):
             # 1. Project pattern
@@ -148,18 +434,27 @@ class ProcamCapturer:
                 return False
                 
             # 2. Capture image
-            if self.zed.grab() == sl.ERROR_CODE.SUCCESS:
-                # Retrieve the left image (standard for single-camera calibration)
-                self.zed.retrieve_image(image_zed, sl.VIEW.LEFT)
-                image_ocv = image_zed.get_data() # Returns BGRA
-                
-                # Convert BGRA to BGR or Grayscale? calibrate.py reads as Grayscale.
-                # Saving as PNG preserves quality.
-                filename = os.path.join(capture_dir, f"graycode_{i:02d}.png")
-                cv2.imwrite(filename, image_ocv)
-                print(f"  Saved {filename}", end='\r')
+            filename = os.path.join(capture_dir, f"graycode_{i:02d}.png")
+
+            if self.zed is not None:
+                if self.zed.grab() == sl.ERROR_CODE.SUCCESS:
+                    self.zed.retrieve_image(image_zed, self.zed_view)
+                    image_ocv = image_zed.get_data()
+                    if image_ocv is None:
+                        continue
+                    if image_ocv.shape[-1] == 4:
+                        image_ocv = cv2.cvtColor(image_ocv, cv2.COLOR_BGRA2BGR)
+                    cv2.imwrite(filename, image_ocv)
+                    print(f"  Saved {filename}", end="\r")
+                else:
+                    print("  Failed to grab ZED frame")
             else:
-                print("  Failed to grab ZED frame")
+                ok, frame = self.opencv_cap.read()
+                if ok and frame is not None:
+                    cv2.imwrite(filename, frame)
+                    print(f"  Saved {filename}", end="\r")
+                else:
+                    print("  Failed to grab OpenCV frame")
                 
         print(f"\nCapture {capture_idx} completed.")
         
@@ -171,6 +466,16 @@ class ProcamCapturer:
 
     def run(self):
         self.initialize_camera()
+
+        if self.pattern_dir is None:
+            try:
+                s = input("请输入 graycode_pattern 目录（回车则自动生成）: ").strip()
+            except KeyboardInterrupt:
+                print("\nExiting...")
+                return
+            if s:
+                self.pattern_dir = s
+
         self.generate_patterns()
         self.setup_projector_window()
         
@@ -212,7 +517,10 @@ class ProcamCapturer:
         except KeyboardInterrupt:
             print("\nExiting...")
         finally:
-            self.zed.close()
+            if self.zed is not None:
+                self.zed.close()
+            if self.opencv_cap is not None:
+                self.opencv_cap.release()
             cv2.destroyAllWindows()
 
 if __name__ == "__main__":
@@ -223,8 +531,23 @@ if __name__ == "__main__":
     parser.add_argument("--monitor", type=int, default=1, help="Monitor index for projector (default: 1)")
     parser.add_argument("--output", type=str, default=".", help="Output directory")
     parser.add_argument("--pattern_dir", type=str, default=None, help="Directory containing pre-generated pattern images (optional)")
+    parser.add_argument(
+        "--camera_mode",
+        type=str,
+        default="auto",
+        choices=["auto", "zed", "opencv"],
+        help="Camera mode: auto/zed/opencv",
+    )
     
     args = parser.parse_args()
     
-    capturer = ProcamCapturer(args.proj_width, args.proj_height, args.step, args.monitor, args.output, args.pattern_dir)
+    capturer = ProcamCapturer(
+        args.proj_width,
+        args.proj_height,
+        args.step,
+        args.monitor,
+        args.output,
+        args.pattern_dir,
+        camera_mode=args.camera_mode,
+    )
     capturer.run()

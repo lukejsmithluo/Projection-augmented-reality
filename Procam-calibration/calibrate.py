@@ -43,6 +43,10 @@ def main():
                         help='threashold to specify robustness of graycode decoding (default : 5)')
     parser.add_argument('-camera', type=str, default=str(),help='camera internal parameter json file')
     parser.add_argument('-input_dir', type=str, default='./', help='directory containing capture_* folders (default: ./)')
+    parser.add_argument('-output_xml', type=str, default='calibration_result.xml', help='output calibration result xml file (default: calibration_result.xml)')
+    parser.add_argument('-viz_tag', type=str, default=str(), help='tag prefix for visualization images (default: empty)')
+    parser.add_argument('-enable_subpix', type=int, default=1, help='enable corner subpixel refinement (default: 1)')
+    parser.add_argument('-enable_view_filter', type=int, default=1, help='enable outlier view filtering (default: 1)')
 
     args = parser.parse_args()
 
@@ -73,7 +77,6 @@ def main():
         print(f"Directories '{search_pattern}' were not found")
         return
 
-    print('Searching input files ...')
     used_dirnames = []
     gc_fname_lists = []
     for dname in dirnames:
@@ -82,7 +85,7 @@ def main():
             continue
         used_dirnames.append(dname)
         gc_fname_lists.append(gc_fnames)
-        print(' \'' + dname + '\' was found')
+    print('Found ' + str(len(used_dirnames)) + ' capture views')
 
     camP = None
     cam_dist = None
@@ -95,7 +98,7 @@ def main():
 
     calibrate(used_dirnames, gc_fname_lists,
               proj_shape, chess_shape, chess_block_size, gc_step, black_thr, white_thr,
-               camP, cam_dist)
+               camP, cam_dist, args.output_xml, args.viz_tag, bool(args.enable_subpix), bool(args.enable_view_filter))
 
 
 def printNumpyWithIndent(tar, indentchar):
@@ -108,7 +111,7 @@ def loadCameraParam(json_file):
         d = param_data['camera']['distortion']
         return np.array(P).reshape([3,3]), np.array(d)
 
-def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_size, gc_step, black_thr, white_thr, camP, camD):
+def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_size, gc_step, black_thr, white_thr, camP, camD, output_xml, viz_tag, enable_subpix, enable_view_filter):
     objps = np.zeros((chess_shape[0]*chess_shape[1], 3), np.float32)
     objps[:, :2] = chess_block_size * \
         np.mgrid[0:chess_shape[0], 0:chess_shape[1]].T.reshape(-1, 2)
@@ -137,11 +140,9 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
     proj_objps_list = []
     proj_corners_list = []
     for dname, gc_filenames in zip(dirnames, gc_fname_lists):
-        print('  checking \'' + dname + '\'')
         if len(gc_filenames) != graycode.getNumberOfPatternImages() + 2:
             print('Error : invalid number of images in \'' + dname + '\'')
             return None
-
         imgs = []
         for fname in gc_filenames:
             # Load as color then convert to gray to match debug script behavior
@@ -161,9 +162,17 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
 
         res, cam_corners = cv2.findChessboardCorners(white_img, chess_shape, cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE)
         if not res:
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            white_img_clahe = clahe.apply(white_img)
+            res, cam_corners = cv2.findChessboardCorners(white_img_clahe, chess_shape, cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE)
+            
+        if not res:
             print('Error : chessboard was not found in \'' +
                   gc_filenames[-2] + '\'')
             return None
+        if enable_subpix:
+            term_crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+            cv2.cornerSubPix(white_img, cam_corners, (11, 11), (-1, -1), term_crit)
         cols = chess_shape[0]
         rows = chess_shape[1]
         grid = cam_corners.reshape((rows, cols, 2))
@@ -174,7 +183,7 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
             dists.extend(np.linalg.norm(grid[1:, :, :] - grid[:-1, :, :], axis=2).reshape(-1).tolist())
 
         if len(dists) == 0:
-            square_px = float(patch_size_half)
+            square_px = 10.0
         else:
             square_px = float(np.median(np.array(dists, dtype=np.float32)))
 
@@ -200,8 +209,8 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
                         continue
                     if int(white_img[y, x]) - int(black_img[y, x]) <= black_thr:
                         continue
-                    err, proj_pix = graycode.getProjPixel(imgs, x, y)
-                    if not err:
+                    ok, proj_pix = graycode.getProjPixel(imgs, x, y)
+                    if ok:
                         src_points.append((x, y))
                         dst_points.append(gc_step*np.array(proj_pix))
             if len(src_points) < min_decoded:
@@ -237,7 +246,8 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
         if len(proj_corners) < min_view_corners:
             print('  Warning : too few corners were found in \'' +
                   dname + '\' (' + str(len(proj_corners)) + ' < ' + str(min_view_corners) + '), this view will be skipped')
-            cv2.imwrite('visualize_corners_projector_' +
+            tag_prefix = (viz_tag + '_') if viz_tag else ''
+            cv2.imwrite('visualize_corners_projector_' + tag_prefix +
                         os.path.basename(dname) + '.png', viz_proj_points)
             continue
         
@@ -249,7 +259,8 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
         cam_corners_list2.append(np.float32(cam_corners2))
         
         # Visualize detected projector corners for debugging
-        cv2.imwrite('visualize_corners_projector_' +
+        tag_prefix = (viz_tag + '_') if viz_tag else ''
+        cv2.imwrite('visualize_corners_projector_' + tag_prefix +
                     os.path.basename(dname) + '.png', viz_proj_points)
 
     if len(proj_corners_list) == 0:
@@ -271,7 +282,7 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
             
             # Calculate actual RMS for solvePnP
             imgpts, _ = cv2.projectPoints(objp, cam_rvec, cam_tvec, camP, camD)
-            error = cv2.norm(corners, imgpts, cv2.NORM_L2) / len(imgpts)
+            error = np.sqrt(cv2.norm(corners, imgpts, cv2.NORM_L2)**2 / len(imgpts))
             print('  RMS (PnP) :', error)
             
         cam_int = camP
@@ -287,13 +298,54 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
         proj_objps_list, proj_corners_list, proj_size, None, None, None, None)
     print('  RMS :', ret)
     
-    # Calculate per-view RMS for Projector
     print('  Per-view Projector RMS:')
+    proj_view_errors = []
+    proj_view_names_before = list(view_names)
     for i, (objp, corners, rvec, tvec) in enumerate(zip(proj_objps_list, proj_corners_list, proj_rvecs, proj_tvecs)):
         imgpts, _ = cv2.projectPoints(objp, rvec, tvec, proj_int, proj_dist)
-        error = cv2.norm(corners, imgpts, cv2.NORM_L2) / len(imgpts)
+        error = np.sqrt(cv2.norm(corners, imgpts, cv2.NORM_L2)**2 / len(imgpts))
+        proj_view_errors.append(error)
         view_name = view_names[i] if i < len(view_names) else str(i)
         print(f'    View {i} ({view_name}): {error:.4f}')
+    proj_view_errors_before = list(proj_view_errors)
+    view_filter_median = None
+    view_filter_threshold = None
+    removed_view_names = []
+    removed_view_rms = []
+    if enable_view_filter and len(proj_view_errors) > 0:
+        err_median = float(np.median(np.array(proj_view_errors, dtype=np.float32)))
+        err_thr = max(2.0, err_median * 1.5)
+        kept_indices = [i for i, e in enumerate(proj_view_errors) if e <= err_thr]
+        if 0 < len(kept_indices) < len(proj_objps_list):
+            removed = [(view_names[i] if i < len(view_names) else str(i), float(proj_view_errors[i])) for i in range(len(proj_view_errors)) if i not in set(kept_indices)]
+            removed_sorted = sorted(removed, key=lambda x: x[1], reverse=True)
+            print('  Filtering views by Projector RMS')
+            print('    Median : ' + str(err_median))
+            print('    Threshold : ' + str(err_thr))
+            print('    Kept : ' + str(len(kept_indices)) + ' / ' + str(len(proj_view_errors)))
+            if len(removed_sorted) > 0:
+                print('    Removed:')
+                for name, e in removed_sorted:
+                    print('      ' + str(name) + ' : ' + str(e))
+            view_filter_median = err_median
+            view_filter_threshold = err_thr
+            removed_view_names = [name for name, _ in removed_sorted]
+            removed_view_rms = [e for _, e in removed_sorted]
+            proj_objps_list = [proj_objps_list[i] for i in kept_indices]
+            proj_corners_list = [proj_corners_list[i] for i in kept_indices]
+            cam_objps_list = [cam_objps_list[i] for i in kept_indices]
+            cam_corners_list = [cam_corners_list[i] for i in kept_indices]
+            cam_corners_list2 = [cam_corners_list2[i] for i in kept_indices]
+            view_names = [view_names[i] for i in kept_indices]
+            ret, proj_int, proj_dist, proj_rvecs, proj_tvecs = cv2.calibrateCamera(
+                proj_objps_list, proj_corners_list, proj_size, None, None, None, None)
+            print('  RMS (filtered) :', ret)
+            print('  Per-view Projector RMS (filtered):')
+            for i, (objp, corners, rvec, tvec) in enumerate(zip(proj_objps_list, proj_corners_list, proj_rvecs, proj_tvecs)):
+                imgpts, _ = cv2.projectPoints(objp, rvec, tvec, proj_int, proj_dist)
+                error = np.sqrt(cv2.norm(corners, imgpts, cv2.NORM_L2)**2 / len(imgpts))
+                view_name = view_names[i] if i < len(view_names) else str(i)
+                print(f'    View {i} ({view_name}): {error:.4f}')
 
     print('  Intrinsic parameters :')
     printNumpyWithIndent(proj_int, '    ')
@@ -302,7 +354,9 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
     print()
 
     print('=== Result ===')
-    flags = cv2.CALIB_FIX_INTRINSIC
+    flags = cv2.CALIB_USE_INTRINSIC_GUESS | \
+            cv2.CALIB_FIX_K1 | cv2.CALIB_FIX_K2 | cv2.CALIB_FIX_K3 | \
+            cv2.CALIB_FIX_TANGENT_DIST | cv2.CALIB_FIX_K4 | cv2.CALIB_FIX_K5 | cv2.CALIB_FIX_K6
         
     ret, cam_int, cam_dist, proj_int, proj_dist, cam_proj_rmat, cam_proj_tvec, E, F = cv2.stereoCalibrate(
         proj_objps_list, cam_corners_list2, proj_corners_list, cam_int, cam_dist, proj_int, proj_dist, cam_size, flags=flags)
@@ -321,7 +375,7 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
     printNumpyWithIndent(cam_proj_tvec, '    ')
     print()
 
-    fs = cv2.FileStorage('calibration_result.xml', cv2.FILE_STORAGE_WRITE)
+    fs = cv2.FileStorage(output_xml, cv2.FILE_STORAGE_WRITE)
     fs.write('img_shape', cam_shape)
     fs.write('rms', ret)
     fs.write('cam_int', cam_int)
@@ -330,6 +384,14 @@ def calibrate(dirnames, gc_fname_lists, proj_shape, chess_shape, chess_block_siz
     fs.write('proj_dist', proj_dist)
     fs.write('rotation', cam_proj_rmat)
     fs.write('translation', cam_proj_tvec)
+    fs.write('proj_view_names_before', '\n'.join(proj_view_names_before))
+    fs.write('proj_view_rms_before', np.array(proj_view_errors_before, dtype=np.float64).reshape(-1, 1))
+    fs.write('proj_view_names_after', '\n'.join(view_names))
+    if view_filter_median is not None and view_filter_threshold is not None:
+        fs.write('view_filter_median', float(view_filter_median))
+        fs.write('view_filter_threshold', float(view_filter_threshold))
+        fs.write('removed_view_names', '\n'.join(removed_view_names))
+        fs.write('removed_view_rms', np.array(removed_view_rms, dtype=np.float64).reshape(-1, 1))
     fs.release()
 
 

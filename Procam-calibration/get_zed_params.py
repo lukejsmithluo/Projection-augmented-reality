@@ -8,7 +8,7 @@ def main():
     # Initialize ZED camera with the same settings used for capture
     zed = sl.Camera()
     init_params = sl.InitParameters()
-    init_params.camera_resolution = sl.RESOLUTION.HD2K
+    init_params.camera_resolution = sl.RESOLUTION.HD1080
     init_params.camera_fps = 15
     init_params.depth_mode = sl.DEPTH_MODE.NEURAL_PLUS
     init_params.coordinate_units = sl.UNIT.MILLIMETER
