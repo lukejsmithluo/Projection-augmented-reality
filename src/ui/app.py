@@ -178,7 +178,7 @@ class MainWindow(QMainWindow):
         layout_pattern.addLayout(form_pattern)
 
         btn_gen_pattern = QPushButton("Generate Patterns")
-        
+
         def do_gen_pattern():
             try:
                 status.setText("Generating patterns...")
@@ -187,9 +187,11 @@ class MainWindow(QMainWindow):
                     "proj_width": spin_pat_w.value(),
                     "proj_height": spin_pat_h.value(),
                     "graycode_step": spin_pat_step.value(),
-                    "output_dir": "data/calibration/patterns"
+                    "output_dir": "data/calibration/patterns",
                 }
-                resp = _api_post("/calibration/pattern/generate", json=payload, timeout=30)
+                resp = _api_post(
+                    "/calibration/pattern/generate", json=payload, timeout=30
+                )
                 if resp.ok:
                     j = resp.json()
                     msg = j.get("message", "Patterns generated successfully.")
@@ -212,7 +214,7 @@ class MainWindow(QMainWindow):
         group_cam = QGroupBox("2. Camera Setup")
         layout_cam = QVBoxLayout()
         btn_get_params = QPushButton("Get & Save Camera Params (ZED)")
-        
+
         def do_get_params():
             try:
                 status.setText("Fetching camera parameters...")
@@ -233,22 +235,22 @@ class MainWindow(QMainWindow):
         # --- Step 3: Data Capture ---
         group_cap = QGroupBox("3. Data Capture")
         layout_cap = QVBoxLayout()
-        
+
         # Config Form
         form_cap = QFormLayout()
-        
+
         spin_proj_w = QSpinBox()
         spin_proj_w.setRange(1, 10000)
         spin_proj_w.setValue(1280)
-        
+
         spin_proj_h = QSpinBox()
         spin_proj_h.setRange(1, 10000)
         spin_proj_h.setValue(720)
-        
+
         spin_monitor = QSpinBox()
         spin_monitor.setRange(0, 10)
         spin_monitor.setValue(1)
-        
+
         spin_gc_step = QSpinBox()
         spin_gc_step.setRange(1, 10)
         spin_gc_step.setValue(1)
@@ -264,7 +266,7 @@ class MainWindow(QMainWindow):
         btn_start_session = QPushButton("Start Session")
         btn_capture_shot = QPushButton("Capture Shot")
         btn_stop_session = QPushButton("Stop Session")
-        
+
         # Initial state
         btn_capture_shot.setEnabled(False)
         btn_stop_session.setEnabled(False)
@@ -276,7 +278,7 @@ class MainWindow(QMainWindow):
                     "proj_height": spin_proj_h.value(),
                     "monitor_index": spin_monitor.value(),
                     "graycode_step": spin_gc_step.value(),
-                    "output_dir": "projector_calibration_data" 
+                    "output_dir": "projector_calibration_data",
                 }
                 status.setText("Starting capture session...")
                 QApplication.processEvents()
@@ -303,11 +305,15 @@ class MainWindow(QMainWindow):
                 QApplication.processEvents()
                 # Disable button to prevent double clicks
                 btn_capture_shot.setEnabled(False)
-                resp = _api_post("/calibration/capture/shot", timeout=60) # Long timeout for pattern projection
+                resp = _api_post(
+                    "/calibration/capture/shot", timeout=60
+                )  # Long timeout for pattern projection
                 if resp.ok:
                     j = resp.json()
                     if j.get("success"):
-                        status.setText("Pose captured successfully! Move board and capture next.")
+                        status.setText(
+                            "Pose captured successfully! Move board and capture next."
+                        )
                     else:
                         status.setText(f"Capture failed: {j.get('message')}")
                 else:
@@ -321,7 +327,7 @@ class MainWindow(QMainWindow):
             try:
                 status.setText("Stopping session...")
                 QApplication.processEvents()
-                resp = _api_post("/calibration/capture/stop", timeout=5)
+                _api_post("/calibration/capture/stop", timeout=5)
                 status.setText("Session stopped.")
                 # Reset UI state
                 btn_start_session.setEnabled(True)
@@ -338,19 +344,19 @@ class MainWindow(QMainWindow):
         btn_start_session.clicked.connect(do_start_session)
         btn_capture_shot.clicked.connect(do_capture_shot)
         btn_stop_session.clicked.connect(do_stop_session)
-        
+
         hbox_cap.addWidget(btn_start_session)
         hbox_cap.addWidget(btn_capture_shot)
         hbox_cap.addWidget(btn_stop_session)
         layout_cap.addLayout(hbox_cap)
-        
+
         group_cap.setLayout(layout_cap)
         layout.addWidget(group_cap)
 
         # --- Step 4: Calibration ---
         group_calib = QGroupBox("4. Calibration")
         layout_calib = QVBoxLayout()
-        
+
         form_calib = QFormLayout()
         spin_chess_rows = QSpinBox()
         spin_chess_rows.setValue(6)
@@ -359,23 +365,23 @@ class MainWindow(QMainWindow):
         spin_block_size = QDoubleSpinBox()
         spin_block_size.setValue(20.0)
         spin_block_size.setSuffix(" mm")
-        
+
         form_calib.addRow("Chessboard Rows (inner corners):", spin_chess_rows)
         form_calib.addRow("Chessboard Cols (inner corners):", spin_chess_cols)
         form_calib.addRow("Block Size:", spin_block_size)
         layout_calib.addLayout(form_calib)
-        
+
         btn_run_calib = QPushButton("Run Calibration")
         result_text = QTextEdit()
         result_text.setReadOnly(True)
         result_text.setPlaceholderText("Calibration results will appear here...")
-        
+
         def do_run_calib():
             try:
                 status.setText("Running calibration... This may take a while.")
                 result_text.clear()
                 QApplication.processEvents()
-                
+
                 payload = {
                     "proj_width": spin_proj_w.value(),
                     "proj_height": spin_proj_h.value(),
@@ -383,9 +389,9 @@ class MainWindow(QMainWindow):
                     "chess_hori": spin_chess_cols.value(),
                     "chess_block_size": spin_block_size.value(),
                     "graycode_step": spin_gc_step.value(),
-                    "output_dir": "data/calibration/captures"
+                    "output_dir": "data/calibration/captures",
                 }
-                
+
                 resp = _api_post("/calibration/run", json=payload, timeout=120)
                 if resp.ok:
                     j = resp.json()
@@ -394,15 +400,19 @@ class MainWindow(QMainWindow):
                         rms = res.get("rms")
                         cam_int = res.get("camera", {}).get("intrinsic")
                         proj_int = res.get("projector", {}).get("intrinsic")
-                        
+
                         report = f"Calibration Successful!\nRMS Error: {rms}\n\n"
                         report += f"Camera Intrinsic:\n{cam_int}\n\n"
                         report += f"Projector Intrinsic:\n{proj_int}\n"
-                        
+
                         result_text.setText(report)
                         status.setText("Calibration completed successfully.")
                     else:
-                        err = j.get("error") or j.get("result", {}).get("error") or "Unknown error"
+                        err = (
+                            j.get("error")
+                            or j.get("result", {}).get("error")
+                            or "Unknown error"
+                        )
                         status.setText(f"Calibration failed: {err}")
                         result_text.setText(f"Failed: {err}")
                 else:
@@ -415,11 +425,11 @@ class MainWindow(QMainWindow):
         btn_run_calib.clicked.connect(do_run_calib)
         layout_calib.addWidget(btn_run_calib)
         layout_calib.addWidget(result_text)
-        
+
         group_calib.setLayout(layout_calib)
         layout.addWidget(group_calib)
 
-        layout.addStretch() # Push everything up
+        layout.addStretch()  # Push everything up
         return w
 
     def _ai_image_tab(self) -> QWidget:

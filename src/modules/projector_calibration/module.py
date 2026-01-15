@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import os
 import json
-from pathlib import Path
-from typing import Optional, Dict, Any
+import os
+from typing import Any, Dict
 
 from pydantic_settings import BaseSettings
 
 from ...common.module_base import ModuleBase
 from ...common.types import ModuleState
 from .config import ProjectorCalibrationSettings
+from .services.calibration_service import CalibrationService
 from .services.camera_service import CameraService
 from .services.capture_service import CaptureService
-from .services.calibration_service import CalibrationService
 from .services.pattern_service import PatternService
+
 
 class ProjectorCalibrationModule(ModuleBase):
     """Projector Calibration Module"""
@@ -21,18 +21,18 @@ class ProjectorCalibrationModule(ModuleBase):
     def __init__(self) -> None:
         self._state: ModuleState = ModuleState.STOPPED
         self._config: ProjectorCalibrationSettings = ProjectorCalibrationSettings()
-        
+
         self._camera_service = CameraService()
         self._capture_service = CaptureService()
         self._calibration_service = CalibrationService()
         self._pattern_service = PatternService()
-        
+
         self._current_capture_idx = 0
 
     def configure(self, config: BaseSettings) -> None:
         if isinstance(config, ProjectorCalibrationSettings):
             self._config = config
-            
+
             # Configure capture service
             self._capture_service.output_dir = self._config.output_dir
 
@@ -48,7 +48,7 @@ class ProjectorCalibrationModule(ModuleBase):
         return {
             "state": self._state,
             "current_capture_idx": self._current_capture_idx,
-            "config": self._config.model_dump()
+            "config": self._config.model_dump(),
         }
 
     # --- Service Methods ---
@@ -57,7 +57,7 @@ class ProjectorCalibrationModule(ModuleBase):
         """Get ZED camera parameters and save to config file."""
         params = self._camera_service.get_camera_params()
         # Save to file as configured
-        with open(self._config.camera_param_file, 'w') as f:
+        with open(self._config.camera_param_file, "w") as f:
             json.dump(params, f, indent=4)
         return params
 
@@ -67,7 +67,7 @@ class ProjectorCalibrationModule(ModuleBase):
             proj_width=self._config.proj_width,
             proj_height=self._config.proj_height,
             graycode_step=self._config.graycode_step,
-            monitor_index=self._config.monitor_index
+            monitor_index=self._config.monitor_index,
         )
         # Find next available index
         idx = 0
@@ -86,13 +86,12 @@ class ProjectorCalibrationModule(ModuleBase):
         """Close capture session."""
         self._capture_service.close()
 
-    def generate_patterns(self, width: int, height: int, step: int, output_dir: str) -> list[str]:
+    def generate_patterns(
+        self, width: int, height: int, step: int, output_dir: str
+    ) -> list[str]:
         """Generate graycode patterns."""
         return self._pattern_service.generate_graycode_patterns(
-            width=width,
-            height=height,
-            step=step,
-            output_dir=output_dir
+            width=width, height=height, step=step, output_dir=output_dir
         )
 
     def run_calibration_task(self) -> Dict[str, Any]:
@@ -107,5 +106,5 @@ class ProjectorCalibrationModule(ModuleBase):
             chess_block_size=self._config.chess_block_size,
             graycode_step=self._config.graycode_step,
             black_thr=self._config.black_thr,
-            white_thr=self._config.white_thr
+            white_thr=self._config.white_thr,
         )

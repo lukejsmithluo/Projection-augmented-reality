@@ -1,11 +1,10 @@
-import sys
-import json
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict
 
 try:
     import pyzed.sl as sl
 except ImportError:
     sl = None
+
 
 class CameraService:
     def __init__(self):
@@ -14,7 +13,7 @@ class CameraService:
     def get_camera_params(self) -> Dict[str, Any]:
         if not sl:
             raise ImportError("ZED SDK not installed or pyzed module missing.")
-        
+
         init_params = sl.InitParameters()
         init_params.camera_resolution = sl.RESOLUTION.HD2K
         init_params.camera_fps = 15
@@ -46,9 +45,9 @@ class CameraService:
                     "distortion": D,
                     "resolution": {
                         "width": cam_info.camera_configuration.resolution.width,
-                        "height": cam_info.camera_configuration.resolution.height
+                        "height": cam_info.camera_configuration.resolution.height,
                     },
-                    "model": str(cam_info.camera_model)
+                    "model": str(cam_info.camera_model),
                 }
             }
         finally:
