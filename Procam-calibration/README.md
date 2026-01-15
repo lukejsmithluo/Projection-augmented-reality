@@ -109,6 +109,21 @@ python calibrate.py <proj_height> <proj_width> <chess_corners_vert> <chess_corne
 * 同时会输出每视图的投影仪 RMS（用于定位离群视图）
 * 会输出可视化图 `visualize_corners_projector_capture_X.png`（或带 tag 的版本）
 
+### Step E：导出 Unreal 参数（可选）
+
+`calculate_unreal_params.py` 用于把 `calibration_result*.xml` 转成 Unreal 常用的镜头参数与 “Projector relative to Camera” 的 Transform。
+
+```sh
+python calculate_unreal_params.py --xml calibration_result_after.xml --proj-width 1280 --proj-height 720 --translation-scale 0.1
+```
+
+说明：
+* `--translation-scale` 用于把标定平移单位转换到 Unreal 常用的厘米（cm）：
+  * 若 `chess_block_size` 用的是 mm：用 `0.1`（mm → cm）
+  * 若 `chess_block_size` 用的是 cm：用 `1.0`
+  * 若 `chess_block_size` 用的是 m：用 `100.0`（m → cm）
+* `--sensor-width-mm` 默认 36mm（全画幅），如你在 Unreal 里用了不同 Filmback，请改成对应数值。
+
 ## 5. 对比运行（推荐：before/after 对比）
 
 为了方便定位问题、验证改动效果，`calibrate.py` 支持输出文件名和可视化 tag：
