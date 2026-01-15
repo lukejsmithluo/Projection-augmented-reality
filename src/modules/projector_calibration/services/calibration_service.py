@@ -4,8 +4,15 @@ import os
 import re
 from typing import Any, Dict
 
-import cv2
-import numpy as np
+try:
+    import cv2  # type: ignore
+except ImportError:
+    cv2 = None
+
+try:
+    import numpy as np  # type: ignore
+except ImportError:
+    np = None
 
 
 class CalibrationService:
@@ -19,6 +26,10 @@ class CalibrationService:
         ]
 
     def load_camera_param(self, json_file: str):
+        if np is None:
+            raise ImportError(
+                "Missing dependency 'numpy'. Install with: python -m pip install numpy"
+            )
         with open(json_file, "r") as f:
             param_data = json.load(f)
             P = param_data["camera"]["P"]
@@ -93,6 +104,14 @@ class CalibrationService:
         camD,
         output_base_dir,
     ):
+        if cv2 is None:
+            raise ImportError(
+                "Missing dependency 'opencv-contrib-python' (cv2). Install with: python -m pip install opencv-contrib-python"
+            )
+        if np is None:
+            raise ImportError(
+                "Missing dependency 'numpy'. Install with: python -m pip install numpy"
+            )
         objps = np.zeros((chess_shape[0] * chess_shape[1], 3), np.float32)
         objps[:, :2] = chess_block_size * np.mgrid[
             0 : chess_shape[0], 0 : chess_shape[1]

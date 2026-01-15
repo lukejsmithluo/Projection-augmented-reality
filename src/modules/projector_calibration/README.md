@@ -40,10 +40,14 @@
 - **配置文件**：模块内 `config.py` 或通过 API 传递参数。
 
 ## 依赖
-- `pyzed` (ZED SDK)
-- `opencv-python`
-- `screeninfo`
-- `numpy`
+- `pyzed` (ZED SDK，仅采集时需要)
+- `opencv-contrib-python`（需要 `structured_light`，仅采集/生成图案/标定时需要）
+- `numpy`（仅采集/生成图案/标定时需要）
+- `screeninfo`（仅采集时需要）
+
+说明：
+- CI 环境默认不会安装以上“投影标定相关依赖”，以避免引入较大三方库导致流水线变慢或不稳定。
+- 因此模块代码已做成“依赖缺失也可被导入”，但当你实际调用采集/图案生成/标定接口时，会在运行时提示缺什么依赖以及安装命令。
 
 ## 更新记录
 - 2025-12-29: 新增 PatternService 及对应 API，支持在线生成 Gray Code 图案。

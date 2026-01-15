@@ -1,9 +1,22 @@
+from __future__ import annotations
+
 import os
 from typing import List
 
-import cv2
-import numpy as np
-from screeninfo import get_monitors
+try:
+    import cv2  # type: ignore
+except ImportError:
+    cv2 = None
+
+try:
+    import numpy as np  # type: ignore
+except ImportError:
+    np = None
+
+try:
+    from screeninfo import get_monitors
+except ImportError:
+    get_monitors = None
 
 try:
     import pyzed.sl as sl
@@ -15,7 +28,7 @@ class CaptureService:
     def __init__(self, output_dir: str = "capture_data"):
         self.output_dir = output_dir
         self.zed = sl.Camera() if sl else None
-        self.patterns: List[np.ndarray] = []
+        self.patterns: List["np.ndarray"] = []
         self.window_name = "Projector Pattern"
         self.monitor_index = 0
         self.proj_width = 0
@@ -30,6 +43,18 @@ class CaptureService:
         graycode_step: int = 1,
         monitor_index: int = 1,
     ):
+        if cv2 is None:
+            raise ImportError(
+                "Missing dependency 'opencv-contrib-python' (cv2). Install with: python -m pip install opencv-contrib-python"
+            )
+        if np is None:
+            raise ImportError(
+                "Missing dependency 'numpy'. Install with: python -m pip install numpy"
+            )
+        if get_monitors is None:
+            raise ImportError(
+                "Missing dependency 'screeninfo'. Install with: python -m pip install screeninfo"
+            )
         if not sl:
             raise ImportError("ZED SDK not installed.")
 
@@ -90,6 +115,10 @@ class CaptureService:
         )  # Black
 
     def _setup_window(self):
+        if get_monitors is None:
+            raise ImportError(
+                "Missing dependency 'screeninfo'. Install with: python -m pip install screeninfo"
+            )
         monitors = get_monitors()
         if len(monitors) <= self.monitor_index:
             target_monitor = monitors[0]

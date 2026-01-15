@@ -1,7 +1,14 @@
 import os
 
-import cv2
-import numpy as np
+try:
+    import cv2  # type: ignore
+except ImportError:
+    cv2 = None
+
+try:
+    import numpy as np  # type: ignore
+except ImportError:
+    np = None
 
 
 class PatternService:
@@ -16,6 +23,14 @@ class PatternService:
         Generate graycode pattern images.
         Returns a list of generated file paths.
         """
+        if cv2 is None:
+            raise ImportError(
+                "Missing dependency 'opencv-contrib-python' (cv2). Install with: python -m pip install opencv-contrib-python"
+            )
+        if np is None:
+            raise ImportError(
+                "Missing dependency 'numpy'. Install with: python -m pip install numpy"
+            )
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 
