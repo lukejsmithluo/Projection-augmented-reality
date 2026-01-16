@@ -1,14 +1,15 @@
 # coding: UTF-8
-import pyzed.sl as sl
-import numpy as np
 import json
 import sys
+
+import pyzed.sl as sl
+
 
 def main():
     # Initialize ZED camera with the same settings used for capture
     zed = sl.Camera()
     init_params = sl.InitParameters()
-    init_params.camera_resolution = sl.RESOLUTION.HD1080
+    init_params.camera_resolution = sl.RESOLUTION.HD2K
     init_params.camera_fps = 15
     init_params.depth_mode = sl.DEPTH_MODE.NEURAL_PLUS
     init_params.coordinate_units = sl.UNIT.MILLIMETER
@@ -34,11 +35,7 @@ def main():
     # [fx,  0, cx]
     # [ 0, fy, cy]
     # [ 0,  0,  1]
-    P = [
-        fx, 0, cx,
-        0, fy, cy,
-        0, 0, 1
-    ]
+    P = [fx, 0, cx, 0, fy, cy, 0, 0, 1]
 
     # Extract Distortion Coefficients
     # ZED uses [k1, k2, p1, p2, k3] which matches OpenCV's standard 5-param model
@@ -49,27 +46,25 @@ def main():
     D = dist[:5]
 
     print("\n=== ZED Camera Parameters ===")
-    print(f"Resolution: {cam_info.camera_configuration.resolution.width}x{cam_info.camera_configuration.resolution.height}")
+    print(
+        f"Resolution: {cam_info.camera_configuration.resolution.width}x{cam_info.camera_configuration.resolution.height}"
+    )
     print(f"fx: {fx:.4f}, fy: {fy:.4f}")
     print(f"cx: {cx:.4f}, cy: {cy:.4f}")
     print(f"Distortion: {D}")
 
     # Create dictionary structure
-    data = {
-        "camera": {
-            "P": P,
-            "distortion": list(D)
-        }
-    }
+    data = {"camera": {"P": P, "distortion": list(D)}}
 
     # Save to JSON
     output_file = "camera_config.json"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(data, f, indent=4)
 
     print(f"\nSuccessfully saved parameters to {output_file}")
-    
+
     zed.close()
+
 
 if __name__ == "__main__":
     main()

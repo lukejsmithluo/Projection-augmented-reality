@@ -85,7 +85,11 @@ python capture_data.py <proj_height> <proj_width> --monitor <monitor_index>
 python get_zed_params.py
 ```
 
-会生成 `camera_config.json`（包含相机内参矩阵 `P` 和畸变 `distortion`）。
+会生成 `camera_config.json`（包含相机内参矩阵 `P` 和畸变 `distortion`，`注意`：确保分辨率和捕获采集数据时的分辨率一致，不同分辨率会有不同的内参）。
+```sh
+def main():
+    init_params.camera_resolution = sl.RESOLUTION.HD1080
+```
 
 然后在标定时用 `-camera camera_config.json` 固定相机内参，用于更稳的初值求解。
 
@@ -103,6 +107,9 @@ python calibrate.py <proj_height> <proj_width> <chess_corners_vert> <chess_corne
 * `chess_block_size` 是单个格子的物理尺寸（单位自定，但会影响平移向量的单位）。
 * `black_thr / white_thr` 影响灰码解码鲁棒性：
   * 终端若频繁出现 `decoded pixels were too few`，通常需要提高 `black_thr/white_thr` 或改进曝光/投影对比度。
+* 默认行为：
+  * 默认开启角点亚像素精炼：`-enable_subpix 1`
+  * 默认开启离群视图剔除：`-enable_view_filter 1`（仅在存在明显离群视图时触发）
 
 结果输出：
 * 默认 `calibration_result.xml`
@@ -127,6 +134,7 @@ python calculate_unreal_params.py --xml calibration_result_after.xml --proj-widt
 ## 5. 对比运行（推荐：before/after 对比）
 
 为了方便定位问题、验证改动效果，`calibrate.py` 支持输出文件名和可视化 tag：
+* 该对比不会在 Step D 之后自动生成，需要你手动运行两次（before 与 after 各一次）。
 
 * 剔除前（关闭亚像素与视图剔除）：
 ```sh
@@ -164,6 +172,7 @@ python calibrate.py 1080 1920 11 8 15 1 -black_thr 40 -white_thr 3 -input_dir ".
 * 棋盘角点检测失败：
   * 常见原因：投影过曝、反光、模糊、棋盘太小、角点对比不足。
   * 对策：调整曝光/距离/角度；让棋盘更大、更清晰；尽量避免强反光。
+  * 说明：如果某个 `capture_X` 的 white 图找不到棋盘，本程序会跳过该视图继续标定（不会中断整个流程）。
 * 灰码解码点太少：
   * 常见原因：投影对比度不足、曝光飘、棋盘不在投影覆盖范围、摩尔纹。
   * 对策：固定曝光；提高投影亮度或缩短曝光；增大 `graycode_step`；适当提高 `black_thr/white_thr`。

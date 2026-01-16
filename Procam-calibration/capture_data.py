@@ -1,13 +1,13 @@
 # coding: UTF-8
 
-import os
-import sys
-import time
 import argparse
+import os
+import platform
+import subprocess
+import sys
+
 import cv2
 import numpy as np
-import subprocess
-import platform
 
 try:
     import pyzed.sl as sl
@@ -88,7 +88,9 @@ def _probe_supported_resolutions_opencv(device_index):
         (320, 240),
     ]
     supported = []
-    cap = cv2.VideoCapture(device_index, cv2.CAP_DSHOW if _is_windows() else cv2.CAP_ANY)
+    cap = cv2.VideoCapture(
+        device_index, cv2.CAP_DSHOW if _is_windows() else cv2.CAP_ANY
+    )
     if not cap.isOpened():
         cap.release()
         return []
@@ -165,6 +167,7 @@ def _preview_camera_zed(zed, view, window_name="Camera Preview"):
             cv2.destroyWindow(window_name)
             return False
 
+
 class ProcamCapturer:
     """
     Automated ProCam calibration data acquisition system.
@@ -194,7 +197,7 @@ class ProcamCapturer:
         self.opencv_cap = None
         self.window_name = "Projector Pattern"
         self.patterns = []
-        
+
         # Ensure output directory exists
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -258,7 +261,9 @@ class ProcamCapturer:
         res_pick = _choose_from_list("请选择相机分辨率:", res_items)
         w, h = resolutions[res_pick]
 
-        cap = cv2.VideoCapture(device_index, cv2.CAP_DSHOW if _is_windows() else cv2.CAP_ANY)
+        cap = cv2.VideoCapture(
+            device_index, cv2.CAP_DSHOW if _is_windows() else cv2.CAP_ANY
+        )
         if not cap.isOpened():
             cap.release()
             print("Error: failed to open camera.")
@@ -302,73 +307,108 @@ class ProcamCapturer:
             if os.path.exists(self.pattern_dir):
                 print(f"Loading patterns from {self.pattern_dir}...")
                 import glob
-                files = sorted(glob.glob(os.path.join(self.pattern_dir, "pattern_*.png")))
+
+                files = sorted(
+                    glob.glob(os.path.join(self.pattern_dir, "pattern_*.png"))
+                )
                 if not files:
                     print(f"No 'pattern_*.png' files found in {self.pattern_dir}")
                     sys.exit(1)
-                
+
                 self.patterns = []
                 for f in files:
                     img = cv2.imread(f, cv2.IMREAD_GRAYSCALE)
                     if img is None:
                         print(f"Failed to load {f}")
                         sys.exit(1)
-                    
-                    if img.shape[1] != self.proj_width or img.shape[0] != self.proj_height:
-                        print(f"Error: Pattern {os.path.basename(f)} size ({img.shape[1]}x{img.shape[0]}) "
-                              f"does not match projector configuration ({self.proj_width}x{self.proj_height})")
+
+                    if (
+                        img.shape[1] != self.proj_width
+                        or img.shape[0] != self.proj_height
+                    ):
+                        print(
+                            f"Error: Pattern {os.path.basename(f)} size ({img.shape[1]}x{img.shape[0]}) "
+                            f"does not match projector configuration ({self.proj_width}x{self.proj_height})"
+                        )
                         sys.exit(1)
-                        
+
                     self.patterns.append(img)
 
                 # Check if we need to append White/Black patterns
                 gc_height = int((self.proj_height - 1) / self.graycode_step) + 1
                 gc_width = int((self.proj_width - 1) / self.graycode_step) + 1
                 try:
-                    graycode = cv2.structured_light_GrayCodePattern.create(gc_width, gc_height)
+                    graycode = cv2.structured_light_GrayCodePattern.create(
+                        gc_width, gc_height
+                    )
                     expected_count = graycode.getNumberOfPatternImages()
-                    
+
                     if len(self.patterns) == expected_count:
-                        print(f"Loaded {len(self.patterns)} patterns (matches expected pure Gray Code count). Appending White and Black.")
-                        self.patterns.append(255 * np.ones((self.proj_height, self.proj_width), np.uint8))
-                        self.patterns.append(np.zeros((self.proj_height, self.proj_width), np.uint8))
+                        print(
+                            f"Loaded {len(self.patterns)} patterns (matches expected pure Gray Code count). Appending White and Black."
+                        )
+                        self.patterns.append(
+                            255 * np.ones((self.proj_height, self.proj_width), np.uint8)
+                        )
+                        self.patterns.append(
+                            np.zeros((self.proj_height, self.proj_width), np.uint8)
+                        )
                     elif len(self.patterns) == expected_count + 2:
-                        print(f"Loaded {len(self.patterns)} patterns (matches expected count + 2). Assuming White and Black are included.")
+                        print(
+                            f"Loaded {len(self.patterns)} patterns (matches expected count + 2). Assuming White and Black are included."
+                        )
                     else:
-                        print(f"Warning: Loaded pattern count ({len(self.patterns)}) does not match expected ({expected_count}) or expected+2 ({expected_count+2}).")
+                        print(
+                            f"Warning: Loaded pattern count ({len(self.patterns)}) does not match expected ({expected_count}) or expected+2 ({expected_count+2})."
+                        )
                         if len(self.patterns) > expected_count:
-                             print("Assuming White and Black are already included or extra patterns exist. NOT appending.")
+                            print(
+                                "Assuming White and Black are already included or extra patterns exist. NOT appending."
+                            )
                         else:
-                             print("Pattern count is low. Appending White and Black anyway.")
-                             self.patterns.append(255 * np.ones((self.proj_height, self.proj_width), np.uint8))
-                             self.patterns.append(np.zeros((self.proj_height, self.proj_width), np.uint8))
+                            print(
+                                "Pattern count is low. Appending White and Black anyway."
+                            )
+                            self.patterns.append(
+                                255
+                                * np.ones((self.proj_height, self.proj_width), np.uint8)
+                            )
+                            self.patterns.append(
+                                np.zeros((self.proj_height, self.proj_width), np.uint8)
+                            )
                 except Exception as e:
                     print(f"Warning: Could not verify pattern count using OpenCV: {e}")
-                    # Fallback behavior: if count is even, assume white/black might be missing? 
-                    # Or just append if user says so? 
+                    # Fallback behavior: if count is even, assume white/black might be missing?
+                    # Or just append if user says so?
                     # Given the user's issue, let's look at the filenames maybe?
                     # But safest is: if we loaded 'enough', assume it's fine.
                     # Let's just append if < 40 (heuristic) otherwise don't? No, that's dangerous.
                     # Let's just append for now if validation fails, as legacy behavior.
-                    self.patterns.append(255 * np.ones((self.proj_height, self.proj_width), np.uint8))
-                    self.patterns.append(np.zeros((self.proj_height, self.proj_width), np.uint8))
-                
+                    self.patterns.append(
+                        255 * np.ones((self.proj_height, self.proj_width), np.uint8)
+                    )
+                    self.patterns.append(
+                        np.zeros((self.proj_height, self.proj_width), np.uint8)
+                    )
+
                 print(f"Total patterns to project: {len(self.patterns)}")
                 return
             else:
-                print(f"Warning: Pattern directory {self.pattern_dir} does not exist. Falling back to generation.")
+                print(
+                    f"Warning: Pattern directory {self.pattern_dir} does not exist. Falling back to generation."
+                )
 
         print("Generating Gray Code patterns...")
         gc_height = int((self.proj_height - 1) / self.graycode_step) + 1
         gc_width = int((self.proj_width - 1) / self.graycode_step) + 1
-        
+
         graycode = cv2.structured_light_GrayCodePattern.create(gc_width, gc_height)
         ret, patterns = graycode.generate()
-        
+
         if not ret:
             print("Failed to generate Gray Code patterns")
             sys.exit(1)
-            
+
         # Expand image size to projector resolution
         self.patterns = []
         for pat in patterns:
@@ -378,13 +418,21 @@ class ProcamCapturer:
             # However, to ensure exact compatibility with calibrate.py decoding logic,
             # we should stick to the logic or ensure the resize is nearest-neighbor.
             # Using cv2.resize with INTER_NEAREST is faster and equivalent.
-            img = cv2.resize(pat, (self.proj_width, self.proj_height), interpolation=cv2.INTER_NEAREST)
+            img = cv2.resize(
+                pat,
+                (self.proj_width, self.proj_height),
+                interpolation=cv2.INTER_NEAREST,
+            )
             self.patterns.append(img)
-            
+
         # Add White and Black patterns at the end (as expected by calibrate.py)
-        self.patterns.append(255 * np.ones((self.proj_height, self.proj_width), np.uint8)) # White
-        self.patterns.append(np.zeros((self.proj_height, self.proj_width), np.uint8))      # Black
-        
+        self.patterns.append(
+            255 * np.ones((self.proj_height, self.proj_width), np.uint8)
+        )  # White
+        self.patterns.append(
+            np.zeros((self.proj_height, self.proj_width), np.uint8)
+        )  # Black
+
         print(f"Generated {len(self.patterns)} patterns.")
 
     def setup_projector_window(self):
@@ -393,7 +441,9 @@ class ProcamCapturer:
         if get_monitors is not None:
             monitors = get_monitors()
             if len(monitors) <= self.monitor_index:
-                print(f"Warning: Monitor index {self.monitor_index} not found. Available monitors: {len(monitors)}")
+                print(
+                    f"Warning: Monitor index {self.monitor_index} not found. Available monitors: {len(monitors)}"
+                )
                 print("Falling back to primary monitor (index 0).")
                 target_monitor = monitors[0]
             else:
@@ -406,8 +456,10 @@ class ProcamCapturer:
         if target_monitor is not None:
             cv2.moveWindow(self.window_name, target_monitor.x, target_monitor.y)
         # Set to fullscreen
-        cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        
+        cv2.setWindowProperty(
+            self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
+        )
+
         # Show a black image initially
         black_img = np.zeros((self.proj_height, self.proj_width), np.uint8)
         cv2.imshow(self.window_name, black_img)
@@ -418,21 +470,23 @@ class ProcamCapturer:
         capture_dir = os.path.join(self.output_dir, f"capture_{capture_idx}")
         if not os.path.exists(capture_dir):
             os.makedirs(capture_dir)
-            
+
         print(f"Starting capture sequence {capture_idx}...")
 
         image_zed = sl.Mat() if self.zed is not None else None
-        
+
         for i, pattern in enumerate(self.patterns):
             # 1. Project pattern
             cv2.imshow(self.window_name, pattern)
-            key = cv2.waitKey(500) # Wait 500ms for projector to stabilize and camera to adjust exposure if needed
+            key = cv2.waitKey(
+                500
+            )  # Wait 500ms for projector to stabilize and camera to adjust exposure if needed
             # Note: For gray codes, fixed exposure is recommended, but ZED auto-exposure usually adapts quickly.
             # Ideally, lock AE before starting.
-            
-            if key == 27: # ESC
+
+            if key == 27:  # ESC
                 return False
-                
+
             # 2. Capture image
             filename = os.path.join(capture_dir, f"graycode_{i:02d}.png")
 
@@ -455,9 +509,9 @@ class ProcamCapturer:
                     print(f"  Saved {filename}", end="\r")
                 else:
                     print("  Failed to grab OpenCV frame")
-                
+
         print(f"\nCapture {capture_idx} completed.")
-        
+
         # Show white after done to light up the room/board
         white_img = 255 * np.ones((self.proj_height, self.proj_width), np.uint8)
         cv2.imshow(self.window_name, white_img)
@@ -478,42 +532,47 @@ class ProcamCapturer:
 
         self.generate_patterns()
         self.setup_projector_window()
-        
+
         print("\n=== Controls ===")
         print("  Press 'Enter' to capture a sequence (ensure chessboard is visible)")
         print("  Press 'q' or 'Esc' to quit")
         print("================\n")
-        
+
         capture_count = 0
-        
+
         # Check existing captures to increment counter
         while os.path.exists(os.path.join(self.output_dir, f"capture_{capture_count}")):
             capture_count += 1
-            
+
         try:
             while True:
                 # Live view for adjustment (optional, requires another window or just terminal prompt)
                 # Since we are using the projector window for patterns, we can't easily show live view there.
                 # But we can just wait for user input.
-                
-                print(f"Ready for capture_{capture_count}. Press Enter to start, q to quit.")
-                
+
+                print(
+                    f"Ready for capture_{capture_count}. Press Enter to start, q to quit."
+                )
+
                 # Simple input loop
                 while True:
                     # Keep window responsive
-                    cv2.imshow(self.window_name, 255 * np.ones((self.proj_height, self.proj_width), np.uint8)) # Show white for setup
+                    cv2.imshow(
+                        self.window_name,
+                        255 * np.ones((self.proj_height, self.proj_width), np.uint8),
+                    )  # Show white for setup
                     key = cv2.waitKey(100)
-                    if key == 13: # Enter
+                    if key == 13:  # Enter
                         break
-                    if key == ord('q') or key == 27:
+                    if key == ord("q") or key == 27:
                         raise KeyboardInterrupt
-                
+
                 success = self.capture_sequence(capture_count)
                 if not success:
                     break
-                    
+
                 capture_count += 1
-                
+
         except KeyboardInterrupt:
             print("\nExiting...")
         finally:
@@ -523,14 +582,29 @@ class ProcamCapturer:
                 self.opencv_cap.release()
             cv2.destroyAllWindows()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ProCam Calibration Data Acquisition")
-    parser.add_argument("proj_height", type=int, help="Projector pixel height (e.g., 720)")
-    parser.add_argument("proj_width", type=int, help="Projector pixel width (e.g., 1280)")
+    parser.add_argument(
+        "proj_height", type=int, help="Projector pixel height (e.g., 720)"
+    )
+    parser.add_argument(
+        "proj_width", type=int, help="Projector pixel width (e.g., 1280)"
+    )
     parser.add_argument("--step", type=int, default=1, help="Graycode step size")
-    parser.add_argument("--monitor", type=int, default=1, help="Monitor index for projector (default: 1)")
+    parser.add_argument(
+        "--monitor",
+        type=int,
+        default=1,
+        help="Monitor index for projector (default: 1)",
+    )
     parser.add_argument("--output", type=str, default=".", help="Output directory")
-    parser.add_argument("--pattern_dir", type=str, default=None, help="Directory containing pre-generated pattern images (optional)")
+    parser.add_argument(
+        "--pattern_dir",
+        type=str,
+        default=None,
+        help="Directory containing pre-generated pattern images (optional)",
+    )
     parser.add_argument(
         "--camera_mode",
         type=str,
@@ -538,9 +612,9 @@ if __name__ == "__main__":
         choices=["auto", "zed", "opencv"],
         help="Camera mode: auto/zed/opencv",
     )
-    
+
     args = parser.parse_args()
-    
+
     capturer = ProcamCapturer(
         args.proj_width,
         args.proj_height,
