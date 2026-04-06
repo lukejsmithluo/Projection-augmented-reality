@@ -12,6 +12,7 @@
 /Procam-calibration/graycode_pattern/**
 /Procam-calibration/**/graycode_pattern/
 /Procam-calibration/**/graycode_pattern/**
+/Procam-calibration/*.png
 
 # Local AI images data
 /data/ai_images/
@@ -95,6 +96,8 @@ venv.bak/
 *.swp
 *.swo
 *~
+.trae/
+.trae/**
 
 # OS files
 .DS_Store

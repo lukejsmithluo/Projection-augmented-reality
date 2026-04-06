@@ -121,7 +121,7 @@ python calibrate.py <proj_height> <proj_width> <chess_corners_vert> <chess_corne
 `calculate_unreal_params.py` 用于把 `calibration_result*.xml` 转成 Unreal 常用的镜头参数与 “Projector relative to Camera” 的 Transform。
 
 ```sh
-python calculate_unreal_params.py --xml calibration_result_after.xml --proj-width 1280 --proj-height 720 --translation-scale 0.1
+python calculate_unreal_params.py --xml calibration_result.xml --proj-width 1280 --proj-height 720 --translation-scale 0.1
 ```
 
 说明：
