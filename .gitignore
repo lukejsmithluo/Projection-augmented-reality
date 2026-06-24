@@ -13,6 +13,10 @@
 /Procam-calibration/**/graycode_pattern/
 /Procam-calibration/**/graycode_pattern/**
 /Procam-calibration/*.png
+/Procam-calibration/CalibrateResult/
+/Procam-calibration/CalibrateResult/**
+/Procam-calibration/OldCalibrationResult/
+/Procam-calibration/OldCalibrationResult/**
 
 # Local AI images data
 /data/ai_images/

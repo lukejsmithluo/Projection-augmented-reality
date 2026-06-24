@@ -92,6 +92,7 @@ def process_calibration_xml(
     proj_height: int = 720,
     sensor_width_mm: float = 36.0,
     translation_scale: float = 1.0,
+    flip_unreal_pitch: bool = True,
 ):
     if not os.path.exists(xml_path):
         print(f"Error: file does not exist: {xml_path}")
@@ -189,9 +190,17 @@ def process_calibration_xml(
 
     # 旋转转换
     roll, pitch, yaw = rotation_matrix_to_euler_unreal(R_inv)
+    if flip_unreal_pitch:
+        # Empirical correction for the UE virtual projector camera convention.
+        # A/B projection tests showed that the converted OpenCV pitch must be
+        # negated to align the real projector image with the ZED-left frame.
+        pitch = -pitch
 
     print("   Set the following values on the Projector Actor (Parent: Camera):")
     print(f"   Translation scale applied: {translation_scale:g}")
+    print(
+        f"   UE pitch sign correction: {'enabled' if flip_unreal_pitch else 'disabled'}"
+    )
     print("")
     print("   Location:")
     print(f"     X (Forward): {pos_ue_x:.4f}")
@@ -235,6 +244,11 @@ if __name__ == "__main__":
         default=1.0,
         help="Scale factor applied to translation before reporting (e.g. 0.1 to convert mm to cm).",
     )
+    parser.add_argument(
+        "--no-flip-unreal-pitch",
+        action="store_true",
+        help="Disable the tested UE virtual-projector pitch sign correction.",
+    )
     args = parser.parse_args()
 
     process_calibration_xml(
@@ -243,4 +257,5 @@ if __name__ == "__main__":
         proj_height=args.proj_height,
         sensor_width_mm=args.sensor_width_mm,
         translation_scale=args.translation_scale,
+        flip_unreal_pitch=not args.no_flip_unreal_pitch,
     )

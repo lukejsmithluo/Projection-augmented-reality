@@ -6,6 +6,7 @@ import json
 import os
 import os.path
 import re
+from datetime import datetime
 
 import cv2
 import numpy as np
@@ -50,6 +51,29 @@ def _detect_chessboard(white_img: np.ndarray, chess_shape: tuple[int, int]):
                 return True, corners, img
 
     return False, None, None
+
+
+def _make_unique_run_dir(result_root: str) -> tuple[str, str]:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = os.path.join(result_root, timestamp)
+    suffix = 1
+    while os.path.exists(run_dir):
+        run_dir = os.path.join(result_root, f"{timestamp}_{suffix:02d}")
+        suffix += 1
+    debug_dir = os.path.join(run_dir, "DebugPictures")
+    os.makedirs(debug_dir, exist_ok=False)
+    return run_dir, debug_dir
+
+
+def _prepare_result_paths(result_root: str, output_xml: str) -> tuple[str, str, str]:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if not os.path.isabs(result_root):
+        result_root = os.path.join(script_dir, result_root)
+
+    xml_name = os.path.basename(output_xml) if output_xml else "calibration_result.xml"
+    run_dir, debug_dir = _make_unique_run_dir(result_root)
+    output_xml_path = os.path.join(run_dir, xml_name)
+    return run_dir, debug_dir, output_xml_path
 
 
 def main():
@@ -114,6 +138,12 @@ def main():
         type=str,
         default="calibration_result.xml",
         help="output calibration result xml file (default: calibration_result.xml)",
+    )
+    parser.add_argument(
+        "-result_root",
+        type=str,
+        default="CalibrateResult",
+        help="root directory for timestamped calibration runs (default: CalibrateResult under this script directory)",
     )
     parser.add_argument(
         "-viz_tag",
@@ -184,6 +214,16 @@ def main():
         print(camP)
         print(cam_dist)
 
+    result_dir, debug_pictures_dir, output_xml_path = _prepare_result_paths(
+        args.result_root, args.output_xml
+    )
+    print("Calibration result directory:")
+    print("  " + result_dir)
+    print("Debug pictures directory:")
+    print("  " + debug_pictures_dir)
+    print("Output XML:")
+    print("  " + output_xml_path)
+
     calibrate(
         used_dirnames,
         gc_fname_lists,
@@ -195,7 +235,8 @@ def main():
         white_thr,
         camP,
         cam_dist,
-        args.output_xml,
+        output_xml_path,
+        debug_pictures_dir,
         args.viz_tag,
         bool(args.enable_subpix),
         bool(args.enable_view_filter),
@@ -226,6 +267,7 @@ def calibrate(
     camP,
     camD,
     output_xml,
+    debug_pictures_dir,
     viz_tag,
     enable_subpix,
     enable_view_filter,
@@ -382,11 +424,14 @@ def calibrate(
                 + "), this view will be skipped"
             )
             tag_prefix = (viz_tag + "_") if viz_tag else ""
-            cv2.imwrite(
+            viz_filename = (
                 "visualize_corners_projector_"
                 + tag_prefix
                 + os.path.basename(dname)
-                + ".png",
+                + ".png"
+            )
+            cv2.imwrite(
+                os.path.join(debug_pictures_dir, viz_filename),
                 viz_proj_points,
             )
             continue
@@ -400,11 +445,14 @@ def calibrate(
 
         # Visualize detected projector corners for debugging
         tag_prefix = (viz_tag + "_") if viz_tag else ""
-        cv2.imwrite(
+        viz_filename = (
             "visualize_corners_projector_"
             + tag_prefix
             + os.path.basename(dname)
-            + ".png",
+            + ".png"
+        )
+        cv2.imwrite(
+            os.path.join(debug_pictures_dir, viz_filename),
             viz_proj_points,
         )
 
@@ -583,6 +631,10 @@ def calibrate(
             np.array(removed_view_rms, dtype=np.float64).reshape(-1, 1),
         )
     fs.release()
+    print("Calibration XML saved to:")
+    print("  " + output_xml)
+    print("Debug pictures saved to:")
+    print("  " + debug_pictures_dir)
 
 
 if __name__ == "__main__":
