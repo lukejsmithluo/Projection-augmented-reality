@@ -13,8 +13,7 @@
 /Procam-calibration/**/graycode_pattern/
 /Procam-calibration/**/graycode_pattern/**
 /Procam-calibration/*.png
-/Procam-calibration/CalibrateResult/
-/Procam-calibration/CalibrateResult/**
+/Procam-calibration/camera_config.json
 /Procam-calibration/OldCalibrationResult/
 /Procam-calibration/OldCalibrationResult/**
 

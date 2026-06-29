@@ -27,6 +27,7 @@
 * `get_zed_params.py`：读取 ZED 相机内参生成 `camera_config.json`。
 * `calibrate.py`：标定主程序，输出 `cv::FileStorage` 格式的 XML。
 * `calculate_unreal_params.py`：把标定结果转为 Unreal 常用参数（如果你后续要用到）。
+* `image_center_tuner.py`：半手动修正 LensFile / 渲染相机的 Image Center，用于消除投影整体偏移。
 
 数据组织约定：
 * 输入目录下包含多个 `capture_*` 子目录（例如 `capture_P5UIST/capture_0`）。
@@ -106,7 +107,7 @@ python calibrate.py <proj_height> <proj_width> <chess_corners_vert> <chess_corne
 * `chess_corners_vert / chess_corners_hori` 是“角点数量”，不是格子数量（OpenCV 角点定义）。
 * `chess_block_size` 是单个格子的物理尺寸（单位自定，但会影响平移向量的单位）。
 * `black_thr / white_thr` 影响灰码解码鲁棒性：
-  * 终端若频繁出现 `decoded pixels were too few`，通常需要提高 `black_thr/white_thr` 或改进曝光/投影对比度。
+  * 终端若频繁出现 `decoded pixels were too few`，通常先尝试降低 `black_thr/white_thr` 或改进曝光/投影对比度；如果解码点很多但明显跳散，再提高阈值。
 * 默认行为：
   * 默认开启角点亚像素精炼：`-enable_subpix 1`
   * 默认开启离群视图剔除：`-enable_view_filter 1`（仅在存在明显离群视图时触发）
@@ -130,6 +131,80 @@ python calculate_unreal_params.py --xml calibration_result.xml --proj-width 1280
   * 若 `chess_block_size` 用的是 cm：用 `1.0`
   * 若 `chess_block_size` 用的是 m：用 `100.0`（m → cm）
 * `--sensor-width-mm` 默认 36mm（全画幅），如你在 Unreal 里用了不同 Filmback，请改成对应数值。
+
+### Step F：修正 Image Center（投影整体偏移时使用）
+
+如果完成标定和虚拟投影仪配置后，画面整体稳定地偏向某个方向，例如所有测试位置都略微向右上偏，可以使用 `image_center_tuner.py` 半手动估计新的 Image Center。这个步骤不是重新标定投影仪内外参，而是在已有内参、外参和畸变基本正确的基础上，对主点 `Cx/Cy` 做小幅反馈修正。
+
+基本流程：
+1. 让真实投影仪投出当前虚拟投影仪画面。
+2. 用一个相机拍下“现实目标位置”和“实际投影位置”同时可见的照片。
+3. 在脚本窗口中，每一组点都先点击真实目标点，再点击对应的实际投影点。
+4. 脚本根据平均偏移量输出建议的新 `Cx/Cy`。
+5. 把新的 `Cx/Cy` 写回 LensFile 或你的渲染相机参数中，再重复检查。
+
+直接调用相机拍照并调点：
+
+```powershell
+python image_center_tuner.py `
+  --camera-index 0 `
+  --capture-out ".\tune_capture.png" `
+  --cx 0.48913 `
+  --cy 0.50436 `
+  --proj-width 1280 `
+  --proj-height 720 `
+  --gain 0.5
+```
+
+使用已有照片调点：
+
+```powershell
+python image_center_tuner.py `
+  --image ".\tune_capture.png" `
+  --cx 0.48913 `
+  --cy 0.50436 `
+  --proj-width 1280 `
+  --proj-height 720 `
+  --gain 0.5
+```
+
+交互方式：
+* 左键第 1 次：点击真实目标点（target / real）。
+* 左键第 2 次：点击对应的实际投影点（projected / actual）。
+* 重复点击多组点，建议覆盖投影区域的中心和四周。
+* `Enter` 或 `S`：完成并输出结果。
+* `Backspace` 或 `U`：撤销。
+* `R`：清空重来。
+* `Q` 或 `Esc`：退出。
+
+常用参数说明：
+* `--cx --cy`：当前 Image Center。可以填归一化值（例如 `0.48913`），也可以填像素值；脚本会把大于 `2.0` 的值按投影分辨率自动转换为归一化值。
+* `--proj-width --proj-height`：投影仪实际输出分辨率，必须和 LensFile / 渲染输出一致。
+* `--camera-index`：OpenCV 相机编号；脚本会打开预览窗口，按空格拍照。
+* `--camera-width --camera-height`：请求相机分辨率，可不填；脚本会打印实际打开的相机帧尺寸。
+* `--capture-out`：保存拍到的照片，方便复查。
+* `--save-pairs-csv`：保存本次点击的点对。
+* `--pairs-csv`：复用之前保存的点对，不重新点击。
+* `--json-out`：保存本次计算报告。
+* `--gain`：反馈增益。外部相机拍照时推荐 `0.25 ~ 0.5`，如果方向稳定但每次修正偏小，再适当增大。
+
+脚本使用的核心计算是：
+
+```text
+residual_i = projected_i - target_i
+mean_dx = mean(residual_x)
+mean_dy = mean(residual_y)
+
+Cx_new = Cx_old - gain * mean_dx / photo_width
+Cy_new = Cy_old - gain * mean_dy / photo_height
+```
+
+其中照片坐标系为 `+X` 向右、`+Y` 向下。因此如果实际投影点整体偏右上，通常会得到 `mean_dx > 0`、`mean_dy < 0`，对应结果是 `Cx` 变小、`Cy` 变大。
+
+注意事项：
+* 调点照片中的投影内容、真实目标、相机位置都要保持稳定；拍照后不要再移动设备。
+* 如果不同区域偏移方向明显不一致，问题通常不只是 Image Center，可能还包含畸变、外参、投影表面深度或点云几何误差。
+* Image Center 修正适合处理“整体平移型偏差”，不适合单独修复局部弯曲或边缘拉伸。
 
 ## 5. 对比运行（推荐：before/after 对比）
 
@@ -175,7 +250,7 @@ python calibrate.py 1080 1920 11 8 15 1 -black_thr 40 -white_thr 3 -input_dir ".
   * 说明：如果某个 `capture_X` 的 white 图找不到棋盘，本程序会跳过该视图继续标定（不会中断整个流程）。
 * 灰码解码点太少：
   * 常见原因：投影对比度不足、曝光飘、棋盘不在投影覆盖范围、摩尔纹。
-  * 对策：固定曝光；提高投影亮度或缩短曝光；增大 `graycode_step`；适当提高 `black_thr/white_thr`。
+  * 对策：固定曝光；提高投影亮度或缩短曝光；增大 `graycode_step`；点太少时适当降低 `black_thr/white_thr`，点很多但跳散时再提高阈值。
 
 ## 7. 参数与接口（CLI）
 
